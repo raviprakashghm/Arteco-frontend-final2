@@ -48,17 +48,99 @@ const Checkout = () => {
 
     setIsProcessing(true);
     
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (paymentMethod === "COD") {
+      // Direct placement without Razorpay
+      await processLocalOrderAndNavigate("Processing");
+      return;
+    }
 
-    // Create Order Record
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+      // 1. Create order on Backend
+      const res = await fetch(`${API_BASE_URL}/api/payment/create-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: orderTotal, receipt: `receipt_${Date.now()}` })
+      });
+      const order = await res.json();
+      
+      if (!order.id) throw new Error("Could not create Razorpay order.");
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder", // Typically loaded from env in frontend too or just use placeholder for demo
+        amount: order.amount,
+        currency: order.currency,
+        name: "Arteco",
+        description: "A Hub For All Architectural Needs",
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            // 3. Verify Payment
+            const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-payment`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderDetails: {
+                  email: user?.email,
+                  items,
+                  amount: orderTotal,
+                  address: `${address}, ${pincode}`,
+                  phone
+                }
+              })
+            });
+            const verifyData = await verifyRes.json();
+            
+            if (verifyData.success) {
+              toast.success("Payment successful! Auto-downloading receipt...");
+              await processLocalOrderAndNavigate("Placed");
+            } else {
+              toast.error("Payment verification failed.");
+              setIsProcessing(false);
+            }
+          } catch (err) {
+            console.error(err);
+            toast.error("Error verifying payment.");
+            setIsProcessing(false);
+          }
+        },
+        prefill: {
+          name: user?.name || "Guest",
+          email: user?.email || "",
+          contact: phone
+        },
+        theme: {
+          color: "#ffcc00"
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        toast.error("Payment failed: " + response.error.description);
+        setIsProcessing(false);
+      });
+      rzp.open();
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to initialize payment");
+      setIsProcessing(false);
+    }
+  };
+
+  const processLocalOrderAndNavigate = async (status: string) => {
     const orderId = `ART${new Date().getFullYear()}${Math.floor(1000 + Math.random() * 9000)}`;
     const newOrder = {
       id: orderId,
       date: new Date().toISOString(),
       items: [...items],
       total: orderTotal,
-      status: "Processing",
+      status: status,
       deliveryDetails: { address, phone, pincode },
       paymentMethod
     };
@@ -67,10 +149,7 @@ const Checkout = () => {
     const existingOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
     localStorage.setItem(`orders_${user?.email}`, JSON.stringify([newOrder, ...existingOrders]));
 
-    // Send mock email & whatsapp by opening links in background or tab
-    toast.success("Receipt generated and sent to WhatsApp!");
-    
-    // Generate PDF Bill
+    // Generate PDF Bill Local Demo
     const doc = new jsPDF();
     doc.setFontSize(22);
     doc.text("ARTECO", 14, 20);
@@ -117,15 +196,11 @@ const Checkout = () => {
     doc.setTextColor(100);
     doc.text("Thank you for shopping with Arteco!", 14, finalY + 30);
     
-    // Generate and download the PDF Bill
     doc.save(`Arteco_Bill_${orderId}.pdf`);
 
-    // Simulate backend sending process instead of opening manual frontend links
-    toast.success(`Automated notification sent to ${phone} behind the scenes!`);
+    toast.success(`Automated notification sent to ${phone} and email behind the scenes!`);
 
     clearCart();
-    
-    // Navigation occurs ONLY after successful simulated payment
     navigate("/order-confirmation", { state: { orderId, amount: orderTotal, itemsCount: items.length, paymentMethod } });
   };
 

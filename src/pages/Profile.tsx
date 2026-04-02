@@ -15,6 +15,7 @@ export interface OrderRecord {
   total: number;
   status: string;
   deliveryDetails: { address: string; phone: string; pincode: string };
+  expectedDelivery?: string;
 }
 
 const Profile = () => {
@@ -37,10 +38,52 @@ const Profile = () => {
 
   useEffect(() => {
     if (user?.email) {
-      const savedOrders = JSON.parse(localStorage.getItem(`orders_${user.email}`) || "[]");
-      setOrders(savedOrders);
+      fetchOrders();
     }
   }, [user]);
+
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/orders?email=${user?.email}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Since backend might override localStorage or miss some mock data:
+        const formattedData = data.map((o: any) => ({
+          id: o.order_id || o.id,
+          date: o.created_at || o.date,
+          total: o.amount,
+          status: o.status,
+          items: o.items || [],
+          deliveryDetails: o.shipping_address ? { address: o.shipping_address, phone: '', pincode: '' } : o.deliveryDetails,
+          expectedDelivery: o.expected_delivery_date
+        }));
+        
+        // merge with local storage if backend is empty (for demo persistence)
+        const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
+        const merged = [...formattedData];
+        savedOrders.forEach((so: any) => {
+          if (!merged.find(m => m.id === so.id)) {
+            merged.push(so);
+          }
+        });
+        setOrders(merged);
+      } else {
+        const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
+        setOrders(savedOrders);
+      }
+    } catch (err) {
+      const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
+      setOrders(savedOrders);
+    }
+  };
+
+  const getOrderStatusProgress = (status: string) => {
+    const statuses = ['Placed', 'Processing', 'Shipped', 'Delivered'];
+    const idx = statuses.indexOf(status);
+    return idx === -1 ? 0 : idx;
+  };
 
   if (loading) {
     return (
@@ -179,23 +222,63 @@ const Profile = () => {
                           </div>
                         </div>
                         <div className="p-6">
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Ordered Items</h4>
-                          <div className="space-y-4">
-                            {order.items.map((item: any, i: number) => (
-                              <div key={i} className="flex gap-4">
-                                <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover bg-secondary" />
-                                <div>
-                                  <p className="font-semibold text-sm">{item.name}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">Qty: {item.quantity} {item.size ? `| Size: ${item.size}` : ""}</p>
-                                  <p className="text-sm font-bold mt-1 text-primary">₹{item.price}</p>
-                                </div>
+                          {/* Flipkart like Order Tracking UI */}
+                          {order.status !== 'Cancelled' && (
+                            <div className="mb-8 mt-4 relative">
+                              <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-secondary rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-primary transition-all duration-1000" 
+                                  style={{ width: `${(getOrderStatusProgress(order.status) / 3) * 100}%` }}
+                                />
                               </div>
-                            ))}
-                          </div>
-                          <div className="mt-6 pt-4 border-t border-border">
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Delivery Informtion</h4>
-                            <p className="text-sm font-medium">{order.deliveryDetails.address}</p>
-                            <p className="text-xs text-muted-foreground mt-1">Ph: {order.deliveryDetails.phone} | Pin: {order.deliveryDetails.pincode}</p>
+                              <div className="relative flex justify-between z-10 w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                {['Placed', 'Processing', 'Shipped', 'Delivered'].map((step, idx) => {
+                                  const isActive = getOrderStatusProgress(order.status) >= idx;
+                                  return (
+                                    <div key={idx} className="flex flex-col items-center gap-2">
+                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
+                                        {isActive ? '✓' : idx + 1}
+                                      </div>
+                                      <span className={isActive ? 'text-primary font-bold' : ''}>{step}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col md:flex-row gap-6">
+                            <div className="flex-1">
+                              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Ordered Items</h4>
+                              <div className="space-y-4">
+                                {order.items.map((item: any, i: number) => (
+                                  <div key={i} className="flex gap-4">
+                                    <img src={item.image || "https://placehold.co/100x100?text=Item"} alt={item.name} className="w-16 h-16 rounded-lg object-cover bg-secondary" />
+                                    <div>
+                                      <p className="font-semibold text-sm">{item.name}</p>
+                                      <p className="text-xs text-muted-foreground mt-1">Qty: {item.quantity} {item.size ? `| Size: ${item.size}` : ""}</p>
+                                      <p className="text-sm font-bold mt-1 text-primary">₹{item.price}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex-1 bg-secondary/20 p-4 rounded-xl border border-border h-fit">
+                              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Delivery Information</h4>
+                              {order.deliveryDetails ? (
+                                <>
+                                  <p className="text-sm font-medium">{order.deliveryDetails.address}</p>
+                                  {order.deliveryDetails.phone && <p className="text-xs text-muted-foreground mt-1">Ph: {order.deliveryDetails.phone} | Pin: {order.deliveryDetails.pincode}</p>}
+                                </>
+                              ) : (
+                                <p className="text-sm font-medium">N/A</p>
+                              )}
+                              {order.expectedDelivery && (
+                                <div className="mt-4 pt-4 border-t border-border">
+                                  <p className="text-xs font-bold text-yellow-500 flex items-center gap-1">⌚ Expected by: {new Date(order.expectedDelivery).toLocaleDateString()}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

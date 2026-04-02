@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import PageTransition from "@/components/PageTransition";
@@ -9,8 +9,14 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/profile", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +24,7 @@ const Login = () => {
     try {
       await login(email, password);
       toast.success("Logged in successfully!");
-      navigate("/profile");
+      navigate("/profile", { replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Login failed. Please try again.");
     } finally {
@@ -30,7 +36,7 @@ const Login = () => {
     try {
       await loginWithGoogle();
       toast.success("Logged in with Google!");
-      navigate("/profile");
+      navigate("/profile", { replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Google login failed.");
     }

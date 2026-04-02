@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingCart, User, Menu, X } from "lucide-react";
+import { ShoppingCart, User, Menu, X, ShieldAlert } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -7,7 +7,7 @@ import artecoLogo from "@/assets/arteco-logo.png";
 
 const Header = () => {
   const { totalItems } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -54,6 +54,11 @@ const Header = () => {
         <div className="flex items-center gap-4">
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
+              {user?.email === "admin@arteco.com" && (
+                <Link to="/admin" className="hover:text-primary transition-colors text-primary mr-1" aria-label="Admin Dashboard">
+                  <ShieldAlert className="h-5 w-5" />
+                </Link>
+              )}
               <Link to="/profile" className="hover:text-primary transition-colors">
                 <User className="h-5 w-5" />
               </Link>
