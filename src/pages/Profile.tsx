@@ -77,15 +77,19 @@ const Profile = () => {
         if (res.ok) {
           const data = await res.json();
           // Status updates from admin are primary, so we use data first
-          const formattedData = data.map((o: any) => ({
-            id: o.order_id || o.id,
-            date: o.created_at || o.date,
-            total: o.amount,
-            status: o.status,
-            items: o.items || [],
-            deliveryDetails: o.shipping_address ? { address: o.shipping_address, phone: o.phone || '', pincode: '' } : o.deliveryDetails,
-            expectedDelivery: o.expected_delivery_date
-          }));
+          const formattedData = data.map((o: any) => {
+            // THE "MASTERCARD SYNC": Priority 1 is what the Admin just broadcasted!
+            const broadcast = localStorage.getItem(`broadcast_status_${o.order_id || o.id}`);
+            return {
+              id: o.order_id || o.id,
+              date: o.created_at || o.date,
+              total: o.amount,
+              status: broadcast || o.status, // 💡 FORCE OVERRIDE
+              items: o.items || [],
+              deliveryDetails: o.shipping_address ? { address: o.shipping_address, phone: o.phone || '', pincode: '' } : o.deliveryDetails,
+              expectedDelivery: o.expected_delivery_date
+            };
+          });
           
           setOrders(formattedData);
         } else {

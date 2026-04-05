@@ -198,28 +198,26 @@ export default function Admin() {
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
-    // 🔒 1. Persistent Master Lock: Survive the refresh!
+    // 🔒 1. Local Selection Lock
     const updatedLocks = { ...statusOverrides, [id]: status };
     setStatusOverrides(updatedLocks);
     localStorage.setItem("admin_status_locks", JSON.stringify(updatedLocks));
     
-    // Updates local orders view as well
+    // Updates local view
     setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
     
-    // 💡 2. Aggressive Database Push
     const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
     try {
-      // Direct Master Route Sync
+      // 💡 MASTER BROADCAST: Notify the user instantly via dedicated messenger
       await fetch(`${BASE}/api/orders/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, order_id: id })
+        body: JSON.stringify({ status, broadcast: true })
       });
-      toast.success(`Broadcasting ${status.toUpperCase()} stage...`);
+      toast.success(`Success: Broadcasting ${status.toUpperCase()}!`);
     } catch (err) {
-      console.warn("DB Delay: Syncing in background.");
-      // Silent retry loop - try again in 5 seconds
-      setTimeout(() => updateOrderStatus(id, status), 5000);
+      console.warn("Retrying broadcast...");
+      setTimeout(() => updateOrderStatus(id, status), 6000);
     } finally {
       fetchOrders();
     }
