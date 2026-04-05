@@ -328,13 +328,23 @@ app.get('/api/orders', async (req, res) => {
 
 app.put('/api/orders/:id/status', async (req, res) => {
   const { status } = req.body;
+  const { id } = req.params;
+  
   // Try matching by id or order_id
-  let { data, error } = await supabase.from('orders').update({ status }).eq('order_id', req.params.id).select();
+  let { data, error } = await supabase.from('orders').update({ status }).eq('order_id', id).select();
   if (!data?.length) {
-    ({ data, error } = await supabase.from('orders').update({ status }).eq('id', req.params.id).select());
+    ({ data, error } = await supabase.from('orders').update({ status }).eq('id', id).select());
   }
+  
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data?.[0] || { success: true });
+  
+  const order = data?.[0];
+  if (order) {
+    // Fire notifications background
+    sendOrderConfirmation(order, { emailEnabled: true, whatsappEnabled: true });
+  }
+  
+  res.json(order || { success: true });
 });
 
 app.put('/api/orders/:id/amount', async (req, res) => {

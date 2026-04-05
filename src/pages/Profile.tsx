@@ -74,32 +74,24 @@ const Profile = () => {
   const fetchOrders = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/orders?email=${user?.email}`);
-      if (res.ok) {
-        const data = await res.json();
-        // Since backend might override localStorage or miss some mock data:
-        const formattedData = data.map((o: any) => ({
-          id: o.order_id || o.id,
-          date: o.created_at || o.date,
-          total: o.amount,
-          status: o.status,
-          items: o.items || [],
-          deliveryDetails: o.shipping_address ? { address: o.shipping_address, phone: '', pincode: '' } : o.deliveryDetails,
-          expectedDelivery: o.expected_delivery_date
-        }));
-        
-        // merge with local storage if backend is empty (for demo persistence)
-        const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
-        const merged = [...formattedData];
-        savedOrders.forEach((so: any) => {
-          if (!merged.find(m => m.id === so.id)) {
-            merged.push(so);
-          }
-        });
-        setOrders(merged);
-      } else {
-        const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
-        setOrders(savedOrders);
-      }
+        if (res.ok) {
+          const data = await res.json();
+          // Status updates from admin are primary, so we use data first
+          const formattedData = data.map((o: any) => ({
+            id: o.order_id || o.id,
+            date: o.created_at || o.date,
+            total: o.amount,
+            status: o.status,
+            items: o.items || [],
+            deliveryDetails: o.shipping_address ? { address: o.shipping_address, phone: o.phone || '', pincode: '' } : o.deliveryDetails,
+            expectedDelivery: o.expected_delivery_date
+          }));
+          
+          setOrders(formattedData);
+        } else {
+          const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
+          setOrders(savedOrders);
+        }
     } catch (err) {
       const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
       setOrders(savedOrders);

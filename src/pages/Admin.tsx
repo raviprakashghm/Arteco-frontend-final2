@@ -7,6 +7,7 @@ import {
   Package, Truck, FileEdit, Plus, Trash2, Users, Activity,
   BarChart2, Settings2, ShieldAlert, Globe, RefreshCw, X, Check
 } from "lucide-react";
+import artecoLogo from "@/assets/arteco-logo.png";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Product { id?: string; name: string; price: number; description?: string; category?: string; image?: string; }
@@ -41,35 +42,75 @@ const TabBtn = ({ id, label, icon: Icon, active, onClick, danger = false }: any)
 
 // ─── Product Modal ───────────────────────────────────────────────────────────
 const ProductModal = ({ product, onSave, onClose }: { product?: Product; onSave: (p: Product) => void; onClose: () => void }) => {
-  const [form, setForm] = useState<Product>(product || { name: "", price: 0, description: "", category: "", image: "" });
+  const [form, setForm] = useState<Product>(product || { name: "", price: 0, description: "", category: "Drawing sheets", image: "" });
+  
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setForm({ ...form, image: reader.result as string });
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const categories = ["Drawing sheets", "Stationery", "Vending machine", "Software courses", "AR VR", "Tours", "Workshops"];
+
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
-      <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg space-y-4">
+    <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-lg">{product ? "Edit Product" : "Add Product"}</h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
+          <h3 className="font-bold text-xl text-primary">{product ? "Edit Product" : "Add New Product"}</h3>
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full"><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
-        {(["name", "price", "description", "category", "image"] as const).map((field) => (
-          <div key={field}>
-            <label className="text-xs uppercase tracking-wider text-muted-foreground mb-1 block">{field}</label>
-            <input
-              type={field === "price" ? "number" : "text"}
-              className="w-full bg-black border border-border rounded-lg px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              value={String(form[field] ?? "")}
-              onChange={(e) => setForm({ ...form, [field]: field === "price" ? Number(e.target.value) : e.target.value })}
-            />
+
+        <div className="grid gap-4">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block font-bold">Product Name</label>
+            <input type="text" className="auth-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Enter name" />
           </div>
-        ))}
-        <div className="flex gap-3 pt-2">
-          <button onClick={() => onSave(form)} className="flex-1 bg-primary text-black font-bold py-2.5 rounded-xl hover:bg-primary/90 flex items-center justify-center gap-2">
-            <Check size={16} /> Save Product
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block font-bold">Price (₹)</label>
+              <input type="number" className="auth-input" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block font-bold">Select Category</label>
+              <select 
+                className="auth-input appearance-none bg-black cursor-pointer" 
+                value={form.category} 
+                onChange={e => setForm({ ...form, category: e.target.value })}
+              >
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block font-bold">Product Description</label>
+            <textarea className="auth-input min-h-[80px] resize-none" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Details..." />
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block font-bold">Product Image</label>
+            <div className="flex items-center gap-4">
+              {form.image && <img src={form.image} className="w-16 h-16 rounded-lg object-cover border border-border" alt="Preview" />}
+              <input type="file" accept="image/*" onChange={handleImageChange} className="text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-black hover:file:bg-primary/80 cursor-pointer" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-4 border-t border-border/50">
+          <button onClick={() => onSave(form)} className="flex-1 bg-primary text-black font-bold py-3 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+            <Check size={18} /> {product ? "Update Product" : "Save Product"}
           </button>
-          <button onClick={onClose} className="px-4 border border-border rounded-xl text-muted-foreground hover:bg-white/5">Cancel</button>
+          <button onClick={onClose} className="px-6 border border-border rounded-xl text-muted-foreground hover:bg-white/5 transition-colors">Cancel</button>
         </div>
       </div>
     </div>
   );
 };
+
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function Admin() {
@@ -111,7 +152,34 @@ export default function Admin() {
   };
 
   const fetchUsers = async () => {
-    try { const res = await fetch(`${API}/api/admin/users`); if (res.ok) setUsersList(await res.json()); } catch { }
+    try { 
+      const res = await fetch(`${API}/api/admin/users`); 
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      } 
+    } catch (err) {
+      console.error("Fetch users error:", err);
+    }
+  };
+
+  const syncUsersManual = async () => {
+    setLoading(true);
+    try {
+      if (user?.email) {
+        await fetch(`${API}/api/users/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: user.id || user.email, email: user.email, name: user.name, phone: user.phone })
+        });
+        toast.success("Users database synced successfully!");
+        fetchUsers();
+      }
+    } catch {
+      toast.error("Failed to sync users manually.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchDeletedUsers = async () => {
@@ -129,11 +197,19 @@ export default function Admin() {
   const updateOrderStatus = async (id: string, status: string) => {
     try {
       const res = await fetch(`${API}/api/orders/${id}/status`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status })
+        method: "PUT", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ status })
       });
-      toast.success(res.ok ? "Order status updated!" : "Updated locally (backend sync offline)");
-      fetchOrders();
-    } catch { toast.success("Updated locally (backend offline)"); }
+      if (res.ok) {
+        toast.success(`Order #${id} status changed to ${status}`);
+        fetchOrders(); // refresh view
+      } else {
+        toast.error("Failed to update status on server.");
+      }
+    } catch { 
+      toast.error("Network error updating status.");
+    }
   };
 
   const overrideOrderAmount = async (id: string, amount: number) => {
@@ -213,16 +289,27 @@ export default function Admin() {
         <div className="container mx-auto px-4 lg:px-6 py-10 max-w-7xl">
           {/* Page Header */}
           <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-xs text-primary uppercase tracking-[0.2em] font-semibold mb-1">Arteco</p>
-              <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+            <div className="flex items-center gap-4">
+              <img src={artecoLogo} alt="Logo" className="h-10 w-10 md:h-12 md:w-12 pointer-events-none" />
+              <div>
+                <p className="text-xs text-primary uppercase tracking-[0.2em] font-semibold mb-1">Arteco</p>
+                <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+              </div>
             </div>
-            <button
-              onClick={fetchAll}
-              className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl text-sm hover:bg-white/5 transition-colors"
-            >
-              <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh All
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={syncUsersManual}
+                className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 rounded-xl text-primary text-sm hover:bg-primary/20 transition-all font-bold"
+              >
+                <Users size={15} /> Sync Users
+              </button>
+              <button
+                onClick={fetchAll}
+                className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl text-sm hover:bg-white/5 transition-colors"
+              >
+                <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh All
+              </button>
+            </div>
           </div>
 
           {/* Stat Cards */}
