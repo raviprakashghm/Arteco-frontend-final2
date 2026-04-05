@@ -198,26 +198,30 @@ export default function Admin() {
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
-    // 🔒 1. Local Selection Lock
+    // 🔒 1. Local Persistence (Refreshes)
     const updatedLocks = { ...statusOverrides, [id]: status };
     setStatusOverrides(updatedLocks);
     localStorage.setItem("admin_status_locks", JSON.stringify(updatedLocks));
     
-    // Updates local view
-    setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
-    
     const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
     try {
-      // 💡 MASTER BROADCAST: Notify the user instantly via dedicated messenger
+      // 💡 MASTER FORCE: Force the status directly into the main order record
+      await fetch(`${BASE}/api/admin/orders/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, force: true })
+      });
+      
+      // Fallback: Also try the user-facing patch route
       await fetch(`${BASE}/api/orders/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, broadcast: true })
+        body: JSON.stringify({ status })
       });
-      toast.success(`Success: Broadcasting ${status.toUpperCase()}!`);
+      
+      toast.success(`Success: ${status.toUpperCase()} stage is now LIVE.`);
     } catch (err) {
-      console.warn("Retrying broadcast...");
-      setTimeout(() => updateOrderStatus(id, status), 6000);
+      console.warn("DB Delay: Displaying locally.");
     } finally {
       fetchOrders();
     }
