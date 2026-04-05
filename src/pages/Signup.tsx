@@ -69,10 +69,12 @@ const Signup = () => {
       // 2. Send via EmailJS (FAST & FREE)
       const emailParams = {
         to_name: name,
-        to_email: email,
+        to_email: email, // This matches what you put in the EmailJS 'To' box
         otp: newOtp,
-        reply_to: email, // Optional
+        reply_to: "noreply@arteco.com",
       };
+
+      console.log("Sending EmailJS with params:", emailParams);
 
       const result = await emailjs.send(
         EMAILJS_SERVICE_ID,
