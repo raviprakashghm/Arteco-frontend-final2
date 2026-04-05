@@ -1,16 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import PageTransition from "@/components/PageTransition";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { logUserAction } from "@/lib/logger";
-import {
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const Signup = () => {
   const [name, setName] = useState("");
@@ -20,21 +16,16 @@ const Signup = () => {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"form" | "otp">("form");
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
-
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   const { signup, loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/profile", { replace: true });
-    }
+    if (isAuthenticated) navigate("/profile", { replace: true });
   }, [isAuthenticated, navigate]);
 
-  // Countdown timer for resend
+  // Countdown timer for resend button
   useEffect(() => {
     if (resendCooldown > 0) {
       const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
@@ -47,26 +38,16 @@ const Signup = () => {
     return rx.test(pass);
   };
 
-  const setupRecaptcha = () => {
-    // Clear any existing verifier
-    if (recaptchaVerifierRef.current) {
-      recaptchaVerifierRef.current.clear();
-      recaptchaVerifierRef.current = null;
-    }
-    recaptchaVerifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
-      callback: () => {},
-    });
-    return recaptchaVerifierRef.current;
-  };
+  const formattedPhone = () => `+91${phone.replace(/\D/g, "").slice(-10)}`;
 
+  // ── Step 1: Send OTP via backend → Twilio SMS ───────────────────────────────
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) { toast.error("Please enter your full name."); return; }
     if (!email.trim() || !email.includes("@")) { toast.error("Please enter a valid email."); return; }
     if (!validatePassword(password)) {
-      toast.error("Password must be 8+ chars with 1 uppercase, 1 lowercase & 1 special character/number.");
+      toast.error("Password must be 8+ chars with 1 uppercase, 1 lowercase & 1 number/special char.");
       return;
     }
     if (phone.replace(/\D/g, "").length < 10) {
@@ -76,92 +57,96 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      const verifier = setupRecaptcha();
-      // Format to E.164 with India code (+91)
-      const digits = phone.replace(/\D/g, "").slice(-10);
-      const formattedPhone = `+91${digits}`;
+      const res = await fetch(`${API}/api/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: formattedPhone() })
+      });
+      const data = await res.json();
 
-      const result = await signInWithPhoneNumber(auth, formattedPhone, verifier);
-      setConfirmationResult(result);
+      if (!res.ok) {
+        // Twilio trial accounts can only SMS verified numbers
+        if (data.code === 21608 || data.code === 21211) {
+          toast.error("Twilio trial: Your number must be verified in the Twilio console first.");
+        } else {
+          toast.error(data.error || "Failed to send OTP. Check your backend.");
+        }
+        return;
+      }
+
       setStep("otp");
       setResendCooldown(60);
-      toast.success(`OTP sent to +91 ${digits}! Check your SMS.`);
+      toast.success(`OTP sent to +91 ${phone.replace(/\D/g, "").slice(-10)}! Check your SMS.`);
     } catch (err: any) {
-      console.error("OTP send error:", err);
-      if (err.code === "auth/invalid-phone-number") {
-        toast.error("Invalid phone number. Enter a valid 10-digit Indian mobile number.");
-      } else if (err.code === "auth/too-many-requests") {
-        toast.error("Too many attempts. Please wait a few minutes and try again.");
-      } else {
-        toast.error(err.message || "Failed to send OTP. Please try again.");
-      }
+      toast.error("Could not reach server. Make sure backend is running.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Step 2: Verify OTP → Create Firebase account ────────────────────────────
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp || otp.length < 6) {
-      toast.error("Please enter the complete 6-digit OTP.");
-      return;
-    }
-    if (!confirmationResult) {
-      toast.error("OTP session expired. Please go back and resend.");
+      toast.error("Please enter the 6-digit OTP.");
       return;
     }
 
     setLoading(true);
     try {
-      // Verify the OTP with Firebase — this will throw if wrong
-      await confirmationResult.confirm(otp);
+      // Verify OTP with backend
+      const verifyRes = await fetch(`${API}/api/otp/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: formattedPhone(), otp })
+      });
+      const verifyData = await verifyRes.json();
 
-      // OTP verified! Now create the email/password account
+      if (!verifyRes.ok) {
+        toast.error(verifyData.error || "OTP verification failed.");
+        return;
+      }
+
+      // OTP correct — create Firebase account
       await signup(name, email, password);
-      toast.success("✅ Mobile verified & account created!");
-      logUserAction(email, "SIGNUP", `Account created. Phone: +91${phone.replace(/\D/g, "").slice(-10)}`);
+      toast.success("✅ Mobile verified & account created successfully!");
+      logUserAction(email, "SIGNUP", `Account created. Phone: ${formattedPhone()}`);
 
       // Sync user to Supabase
       try {
-        await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/users/sync`, {
+        await fetch(`${API}/api/users/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: email,
-            email,
-            name,
-            phone: `+91${phone.replace(/\D/g, "").slice(-10)}`
-          })
+          body: JSON.stringify({ id: email, email, name, phone: formattedPhone() })
         });
       } catch (_) {}
 
       navigate("/profile", { replace: true });
     } catch (err: any) {
-      console.error("OTP verify error:", err);
-      if (err.code === "auth/invalid-verification-code") {
-        toast.error("Incorrect OTP. Please check and try again.");
-      } else if (err.code === "auth/code-expired") {
-        toast.error("OTP has expired. Please go back and resend.");
-      } else {
-        toast.error(err.message || "Verification failed. Try again.");
-      }
+      toast.error(err?.message || "Account creation failed. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendOtp = async () => {
+  // ── Resend OTP ───────────────────────────────────────────────────────────────
+  const handleResend = async () => {
     if (resendCooldown > 0) return;
     setLoading(true);
     try {
-      const verifier = setupRecaptcha();
-      const digits = phone.replace(/\D/g, "").slice(-10);
-      const result = await signInWithPhoneNumber(auth, `+91${digits}`, verifier);
-      setConfirmationResult(result);
-      setResendCooldown(60);
-      toast.success("New OTP sent!");
-    } catch (err: any) {
-      toast.error("Could not resend OTP. Try again in a moment.");
+      const res = await fetch(`${API}/api/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: formattedPhone() })
+      });
+      if (res.ok) {
+        setResendCooldown(60);
+        toast.success("New OTP sent!");
+      } else {
+        toast.error("Failed to resend OTP.");
+      }
+    } catch {
+      toast.error("Server error. Try again.");
     } finally {
       setLoading(false);
     }
@@ -181,7 +166,6 @@ const Signup = () => {
     <PageTransition>
       <div className="min-h-screen bg-background">
         <Header />
-
         <div className="hero-bg min-h-[calc(100vh-64px)] flex items-center justify-center px-6 py-16">
           <div className="w-full max-w-md">
             <div className="auth-card">
@@ -196,96 +180,72 @@ const Signup = () => {
                   </div>
 
                   <form onSubmit={handleSendOtp} className="space-y-5">
+                    {/* Full Name */}
                     <div>
-                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="auth-input"
-                        placeholder="John Doe"
-                      />
+                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">Full Name</label>
+                      <input type="text" required value={name} onChange={e => setName(e.target.value)} className="auth-input" placeholder="John Doe" />
                     </div>
 
+                    {/* Email */}
                     <div>
-                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="auth-input"
-                        placeholder="your@email.com"
-                      />
+                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">Email</label>
+                      <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="auth-input" placeholder="your@email.com" />
                     </div>
 
+                    {/* Mobile */}
                     <div>
                       <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
-                        Mobile Number * <span className="text-muted-foreground font-normal normal-case">(Indian number, 10 digits)</span>
+                        Mobile Number * <span className="font-normal normal-case text-muted-foreground">(10-digit Indian number)</span>
                       </label>
                       <div className="flex">
-                        <span className="flex items-center px-3 bg-secondary border border-r-0 border-border rounded-l-lg text-sm text-muted-foreground">
-                          +91
-                        </span>
+                        <span className="flex items-center px-3 bg-secondary border border-r-0 border-border rounded-l-lg text-sm text-muted-foreground font-medium">+91</span>
                         <input
                           type="tel"
                           required
                           maxLength={10}
                           value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                          onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
                           className="auth-input rounded-l-none flex-1"
                           placeholder="9999999999"
                         />
                       </div>
                     </div>
 
+                    {/* Password */}
                     <div>
-                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
-                        Password *
-                      </label>
+                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">Password *</label>
                       <input
                         type="password"
                         required
                         minLength={8}
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={e => setPassword(e.target.value)}
                         className="auth-input"
                         placeholder="••••••••"
                       />
                       <p className="text-xs text-muted-foreground mt-1">8+ chars, uppercase, lowercase & special character</p>
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? "Sending OTP…" : "Send OTP to Mobile"}
+                    <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
+                      {loading ? "Sending OTP…" : "Send OTP to Mobile →"}
                     </button>
                   </form>
 
+                  {/* Divider */}
                   <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-border" />
-                    </div>
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
                     <div className="relative flex justify-center">
-                      <span className="px-3 text-xs text-muted-foreground" style={{ background: "hsl(0 0% 8%)" }}>
-                        or continue with
-                      </span>
+                      <span className="px-3 text-xs text-muted-foreground" style={{ background: "hsl(0 0% 8%)" }}>or continue with</span>
                     </div>
                   </div>
 
+                  {/* Google */}
                   <button
                     onClick={handleGoogle}
                     className="w-full flex items-center justify-center gap-3 py-3 rounded-lg text-sm font-semibold transition-colors"
                     style={{ background: "hsl(0 0% 12%)", border: "1px solid hsl(0 0% 22%)", color: "hsl(0 0% 88%)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "hsl(46 93% 54% / 0.5)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "hsl(0 0% 22%)")}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = "hsl(46 93% 54% / 0.5)")}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = "hsl(0 0% 22%)")}
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -302,34 +262,28 @@ const Signup = () => {
                   </p>
                 </>
               ) : (
-                /* ── OTP VERIFICATION STEP ── */
+                /* ── OTP Step ── */
                 <div className="space-y-6">
                   <div className="text-center">
                     <div className="w-16 h-16 bg-primary/10 border-2 border-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-2xl">📱</span>
+                      <span className="text-3xl">📱</span>
                     </div>
                     <h2 className="text-xl font-bold">Verify Your Mobile</h2>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      We sent a 6-digit OTP to
-                    </p>
-                    <p className="font-semibold text-primary">
-                      +91 {phone.replace(/\D/g, "").slice(-10)}
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">We sent a 6-digit OTP via SMS to</p>
+                    <p className="font-bold text-primary text-lg mt-1">+91 {phone.replace(/\D/g, "").slice(-10)}</p>
                   </div>
 
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
                     <div>
-                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-2 block text-center">
-                        Enter 6-Digit OTP
-                      </label>
+                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-2 block text-center">Enter 6-Digit OTP</label>
                       <input
                         type="text"
                         required
                         maxLength={6}
                         value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                        className="auth-input text-center text-2xl tracking-[0.5em] font-bold"
-                        placeholder="——————"
+                        onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}
+                        className="auth-input text-center text-2xl tracking-[0.6em] font-bold"
+                        placeholder="------"
                         autoFocus
                       />
                     </div>
@@ -339,23 +293,23 @@ const Signup = () => {
                       disabled={loading || otp.length < 6}
                       className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Verifying…" : "Verify & Create Account"}
+                      {loading ? "Verifying…" : "✅ Verify & Create Account"}
                     </button>
                   </form>
 
-                  <div className="text-center space-y-3">
+                  <div className="text-center space-y-3 pt-2">
                     <button
                       type="button"
-                      onClick={handleResendOtp}
+                      onClick={handleResend}
                       disabled={resendCooldown > 0 || loading}
-                      className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
                     >
-                      {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : "Resend OTP"}
+                      {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : "🔁 Resend OTP"}
                     </button>
                     <br />
                     <button
                       type="button"
-                      onClick={() => { setStep("form"); setOtp(""); setConfirmationResult(null); }}
+                      onClick={() => { setStep("form"); setOtp(""); }}
                       className="text-xs text-muted-foreground hover:underline"
                     >
                       ← Change phone number
