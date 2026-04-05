@@ -5,8 +5,12 @@ import PageTransition from "@/components/PageTransition";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { logUserAction } from "@/lib/logger";
+import emailjs from '@emailjs/browser';
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const EMAILJS_SERVICE_ID = "service_fgme6zs";
+const EMAILJS_TEMPLATE_ID = "template_5914mqp";
+const EMAILJS_PUBLIC_KEY = "rwIUiOUbWpprqVmoJ";
 
 const Signup = () => {
   const [name, setName] = useState("");
@@ -15,6 +19,7 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState("");
   const [step, setStep] = useState<"form" | "otp">("form");
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -57,27 +62,38 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/otp/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Failed to send OTP.");
-        setLoading(false); // Reset loading if it fails
+      // 1. Generate local OTP
+      const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtp(newOtp);
+
+      // 2. Send via EmailJS (FAST & FREE)
+      const emailParams = {
+        to_name: name,
+        to_email: email,
+        otp: newOtp,
+        reply_to: email, // Optional
+      };
+
+      const result = await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        emailParams,
+        EMAILJS_PUBLIC_KEY
+      );
+
+      if (result.status !== 200) {
+        toast.error("Failed to send verification email. Please try again.");
         return;
       }
 
       setStep("otp");
       setResendCooldown(60);
-      toast.success(`OTP sent to ${email}!`);
-    } catch (err) {
-      toast.error("Could not reach server.");
-      setLoading(false); // Reset loading on error
+      toast.success(`OTP sent to ${email}! Check your inbox.`);
+    } catch (err: any) {
+      console.error("EmailJS error:", err);
+      toast.error("Error sending OTP. Please try again.");
     } finally {
-      setLoading(false); // Ensure loading is off
+      setLoading(false);
     }
   };
 
@@ -91,15 +107,10 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      const verifyRes = await fetch(`${API}/api/otp/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp })  // verify by email
-      });
-      const verifyData = await verifyRes.json();
-
-      if (!verifyRes.ok) {
-        toast.error(verifyData.error || "OTP verification failed.");
+      // Direct verification (EmailJS sent it, we check it here)
+      if (otp !== generatedOtp) {
+        toast.error("Invalid OTP code. Please try again.");
+        setLoading(false);
         return;
       }
 
