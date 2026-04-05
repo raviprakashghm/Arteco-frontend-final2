@@ -260,7 +260,7 @@ export default function Admin() {
     } catch { 
       toast.success(isEdit ? "Updated product in session" : "Added product in session");
     } finally {
-      fetchProducts();
+      await fetchProducts(); // Force re-fetch from database immediately
       setShowProductModal(false);
       setEditingProduct(undefined);
     }
@@ -279,7 +279,7 @@ export default function Admin() {
     !logFilter || l.user_email?.includes(logFilter) || l.action?.includes(logFilter) || l.details?.includes(logFilter)
   );
 
-  const totalRevenue = orders.reduce((s, o) => s + (o.amount || o.total || 0), 0);
+  const totalRevenue = orders.filter(o => o.status === "Delivered").reduce((s, o) => s + (o.amount || o.total || 0), 0);
   const activeOrders = orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length;
 
   if (user?.email !== "admin@arteco.com") {
