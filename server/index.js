@@ -18,56 +18,74 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret_placeholder',
 });
 
-// ─── In-Memory OTP Store (phone → { code, expiresAt }) ───────────────────────
+// ─── In-Memory OTP Store (email → { code, expiresAt }) ──────────────────────
 const otpStore = new Map();
 
-// Send OTP via Twilio SMS
-app.post('/api/otp/send', async (req, res) => {
-  const { phone } = req.body; // expects E.164 like +919448925051
-  if (!phone) return res.status(400).json({ error: 'Phone number required' });
+const nodemailer = require('nodemailer');
+const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
-  // Generate 6-digit OTP
+// Send OTP via Email (FREE — uses Gmail/Nodemailer already configured)
+app.post('/api/otp/send', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  // Generate secure 6-digit OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-  otpStore.set(phone, { otp, expiresAt });
+  otpStore.set(email, { otp, expiresAt });
 
-  // Send via Twilio SMS
   try {
-    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    await client.messages.create({
-      body: `Your Arteco verification code is: ${otp}. Valid for 5 minutes. Do not share with anyone.`,
-      from: process.env.TWILIO_SMS_FROM || process.env.TWILIO_PHONE_FROM,
-      to: phone
+    await emailTransporter.sendMail({
+      from: `"Arteco" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `${otp} — Your Arteco Verification Code`,
+      html: `
+        <div style="background:#111;color:#eee;font-family:Arial,sans-serif;padding:36px;border-radius:12px;max-width:480px;margin:auto">
+          <h2 style="color:#C9A14A;margin-bottom:4px">Arteco</h2>
+          <p style="color:#aaa;margin:0 0 24px">Built by Architects for Architectural Students</p>
+          <p style="font-size:15px">Your email verification code is:</p>
+          <div style="background:#1a1a1a;border:2px solid #C9A14A;border-radius:10px;padding:24px;text-align:center;margin:20px 0">
+            <span style="font-size:42px;font-weight:bold;letter-spacing:12px;color:#C9A14A">${otp}</span>
+          </div>
+          <p style="color:#aaa;font-size:13px">This code is valid for <strong style="color:#eee">5 minutes</strong>. Do not share it with anyone.</p>
+          <p style="color:#555;font-size:12px;margin-top:24px">If you didn't request this, ignore this email.</p>
+        </div>
+      `
     });
-    console.log(`[OTP] Sent to ${phone}: ${otp}`);
-    res.json({ success: true, message: 'OTP sent successfully' });
+    console.log(`[OTP] Sent to ${email}: ${otp}`);
+    res.json({ success: true });
   } catch (err) {
-    console.error('[OTP] Twilio error:', err.message);
-    // For development/trial — still store OTP but warn
-    res.status(500).json({ error: err.message, code: err.code });
+    console.error('[OTP] Email error:', err.message);
+    res.status(500).json({ error: 'Failed to send OTP email. Check EMAIL_USER and EMAIL_PASS on server.' });
   }
 });
 
 // Verify OTP
 app.post('/api/otp/verify', (req, res) => {
-  const { phone, otp } = req.body;
-  if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP required' });
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: 'Email and OTP required' });
 
-  const record = otpStore.get(phone);
-  if (!record) return res.status(400).json({ error: 'No OTP sent to this number. Please request a new one.' });
+  const record = otpStore.get(email);
+  if (!record) return res.status(400).json({ error: 'No OTP found. Please request a new one.' });
   if (Date.now() > record.expiresAt) {
-    otpStore.delete(phone);
+    otpStore.delete(email);
     return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
   }
   if (record.otp !== otp.toString()) {
-    return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+    return res.status(400).json({ error: 'Incorrect OTP. Please check and try again.' });
   }
 
-  // OTP correct — clear it
-  otpStore.delete(phone);
-  res.json({ success: true, message: 'Phone verified successfully' });
+  otpStore.delete(email);
+  res.json({ success: true });
 });
+
 
 // Create Order (Razorpay)
 app.post('/api/payment/create-order', async (req, res) => {

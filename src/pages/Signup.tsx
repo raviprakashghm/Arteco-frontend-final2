@@ -40,7 +40,7 @@ const Signup = () => {
 
   const formattedPhone = () => `+91${phone.replace(/\D/g, "").slice(-10)}`;
 
-  // ── Step 1: Send OTP via backend → Twilio SMS ───────────────────────────────
+  // ── Step 1: Send OTP to Email ─────────────────────────────────────────────
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -60,23 +60,18 @@ const Signup = () => {
       const res = await fetch(`${API}/api/otp/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: formattedPhone() })
+        body: JSON.stringify({ email })   // OTP sent to EMAIL — free!
       });
       const data = await res.json();
 
       if (!res.ok) {
-        // Twilio trial accounts can only SMS verified numbers
-        if (data.code === 21608 || data.code === 21211) {
-          toast.error("Twilio trial: Your number must be verified in the Twilio console first.");
-        } else {
-          toast.error(data.error || "Failed to send OTP. Check your backend.");
-        }
+        toast.error(data.error || "Failed to send OTP. Check backend.");
         return;
       }
 
       setStep("otp");
       setResendCooldown(60);
-      toast.success(`OTP sent to +91 ${phone.replace(/\D/g, "").slice(-10)}! Check your SMS.`);
+      toast.success(`OTP sent to ${email}! Check your inbox (also spam folder).`);
     } catch (err: any) {
       toast.error("Could not reach server. Make sure backend is running.");
     } finally {
@@ -84,7 +79,7 @@ const Signup = () => {
     }
   };
 
-  // ── Step 2: Verify OTP → Create Firebase account ────────────────────────────
+  // ── Step 2: Verify OTP → Create Firebase account ──────────────────────────
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp || otp.length < 6) {
@@ -94,11 +89,10 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      // Verify OTP with backend
       const verifyRes = await fetch(`${API}/api/otp/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: formattedPhone(), otp })
+        body: JSON.stringify({ email, otp })  // verify by email
       });
       const verifyData = await verifyRes.json();
 
@@ -109,15 +103,15 @@ const Signup = () => {
 
       // OTP correct — create Firebase account
       await signup(name, email, password);
-      toast.success("✅ Mobile verified & account created successfully!");
-      logUserAction(email, "SIGNUP", `Account created. Phone: ${formattedPhone()}`);
+      toast.success("✅ Email verified & account created successfully!");
+      logUserAction(email, "SIGNUP", `Account created. Phone: +91${phone.replace(/\D/g, "").slice(-10)}`);
 
-      // Sync user to Supabase
+      // Sync to Supabase
       try {
         await fetch(`${API}/api/users/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: email, email, name, phone: formattedPhone() })
+          body: JSON.stringify({ id: email, email, name, phone: `+91${phone.replace(/\D/g, "").slice(-10)}` })
         });
       } catch (_) {}
 
@@ -129,7 +123,7 @@ const Signup = () => {
     }
   };
 
-  // ── Resend OTP ───────────────────────────────────────────────────────────────
+  // ── Resend OTP ────────────────────────────────────────────────────────────
   const handleResend = async () => {
     if (resendCooldown > 0) return;
     setLoading(true);
@@ -137,11 +131,11 @@ const Signup = () => {
       const res = await fetch(`${API}/api/otp/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: formattedPhone() })
+        body: JSON.stringify({ email })
       });
       if (res.ok) {
         setResendCooldown(60);
-        toast.success("New OTP sent!");
+        toast.success(`New OTP sent to ${email}!`);
       } else {
         toast.error("Failed to resend OTP.");
       }
@@ -266,11 +260,12 @@ const Signup = () => {
                 <div className="space-y-6">
                   <div className="text-center">
                     <div className="w-16 h-16 bg-primary/10 border-2 border-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-3xl">📱</span>
+                      <span className="text-3xl">✉️</span>
                     </div>
-                    <h2 className="text-xl font-bold">Verify Your Mobile</h2>
-                    <p className="text-sm text-muted-foreground mt-2">We sent a 6-digit OTP via SMS to</p>
-                    <p className="font-bold text-primary text-lg mt-1">+91 {phone.replace(/\D/g, "").slice(-10)}</p>
+                    <h2 className="text-xl font-bold">Verify Your Email</h2>
+                    <p className="text-sm text-muted-foreground mt-2">We sent a 6-digit OTP to</p>
+                    <p className="font-bold text-primary text-base mt-1">{email}</p>
+                    <p className="text-xs text-muted-foreground mt-1">(Check spam/junk folder too)</p>
                   </div>
 
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
