@@ -104,11 +104,15 @@ const Profile = () => {
 
   const getOrderStatusProgress = (status: string) => {
     if (!status) return 0;
-    const lowerStatus = status.toLowerCase().trim();
-    // 💡 Map every stage to its golden progress stage
-    const stages = ['placed', 'processing', 'dispatched', 'shipped', 'out for delivery', 'delivered'];
-    const idx = stages.indexOf(lowerStatus);
-    return idx === -1 ? 0 : idx;
+    const s = status.toLowerCase().trim();
+    // 💡 THE "MASTERCARD" STAGES MAPPING:
+    if (s === 'placed') return 0;
+    if (s === 'processing') return 1;
+    if (s === 'dispatched') return 2;
+    if (s === 'shipped') return 3; // 🎯 FORCED STAGE 4
+    if (s === 'out for delivery') return 4;
+    if (s === 'delivered') return 5;
+    return 0;
   };
 
   if (loading) {
