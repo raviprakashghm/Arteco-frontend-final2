@@ -263,15 +263,26 @@ export default function Admin() {
   };
 
   const handleDeleteProduct = async (id?: string) => {
-    if (!id || !window.confirm("Delete this product?")) return;
+    if (!id || !window.confirm("Permanent Action: Are you sure you want to delete this product from the live store?")) return;
     try {
-      await fetch(`${API}/api/admin/products/${id}`, { method: "DELETE" });
-      toast.success("Product deleted");
+      const res = await fetch(`${API}/api/admin/products/${id}`, { method: "DELETE" });
+      
+      // CRITICAL: Always clear from local backups too
+      const local = JSON.parse(localStorage.getItem("admin_products_mock") || "[]").filter((p: any) => p.id !== id);
+      localStorage.setItem("admin_products_mock", JSON.stringify(local));
+      
+      if (res.ok) {
+        toast.success("Product permanently removed from database.");
+      } else {
+        toast.success("Removed from local session backup.");
+      }
     } catch { 
       const local = JSON.parse(localStorage.getItem("admin_products_mock") || "[]").filter((p: any) => p.id !== id);
       localStorage.setItem("admin_products_mock", JSON.stringify(local));
-      toast.success("Deleted from local session");
-    } finally { fetchProducts(); }
+      toast.success("Cleanup: Removed from session backup.");
+    } finally {
+      await fetchProducts();
+    }
   };
 
   const filteredLogs = activityLogs.filter(l =>
