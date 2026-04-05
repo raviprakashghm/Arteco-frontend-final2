@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Header from "@/components/Header";
 import StepIndicator from "@/components/StepIndicator";
 import QuantityPicker from "@/components/QuantityPicker";
@@ -9,56 +9,43 @@ import AnimatedSection from "@/components/AnimatedSection";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 
+import tScaleImg from "@/assets/t-scale.jpg";
+import triangularScaleImg from "@/assets/triangular-scale.jpg";
+import setSquareImg from "@/assets/set-square.jpg";
+import microPensImg from "@/assets/micro-pens.jpg";
+import cuttingMatImg from "@/assets/cutting-mat.jpg";
+import thermocolImg from "@/assets/thermocol-sheet.jpg";
+
+const items: Record<string, { name: string; price: number; image: string }> = {
+  "t-scale": { name: "T Scale", price: 350, image: tScaleImg },
+  "triangular-scale": { name: "Triangular Scale", price: 280, image: triangularScaleImg },
+  "set-square": { name: "Set Square", price: 320, image: setSquareImg },
+  "micro-pens": { name: "Micro Pens", price: 224, image: microPensImg },
+  "cutting-mat": { name: "Cutting Mat", price: 450, image: cuttingMatImg },
+  "thermocol-sheet": { name: "Thermocol Sheet", price: 180, image: thermocolImg },
+};
+
 const StationeryDetails = () => {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
-  const [product, setProduct] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-  useEffect(() => {
-    fetch(`${API}/api/admin/products`)
-      .then(res => res.json())
-      .then(data => {
-        const p = data.find((it: any) => it.id === itemId);
-        setProduct(p);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [itemId]);
+  const item = items[itemId || ""];
+  if (!item) return null;
 
   const handleAddToCart = () => {
-    if (!product) return;
     addItem({
-      id: `${product.id}`,
-      name: product.name,
+      id: `stationery-${itemId}`,
+      name: item.name,
       quantity,
-      price: product.price,
-      image: product.image || "/placeholder.svg",
+      price: item.price,
+      image: item.image,
       category: "stationery",
     });
     toast.success("Added to cart!");
     navigate("/cart");
   };
-
-  if (loading) return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="flex items-center justify-center h-[60vh]"><Loader2 className="animate-spin w-10 h-10 text-primary" /></div>
-    </div>
-  );
-
-  if (!product) return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="text-center py-20 text-muted-foreground">Stationery item not found.</div>
-    </div>
-  );
-
-  const { name, price, image } = product;
 
   return (
     <PageTransition>
@@ -72,7 +59,7 @@ const StationeryDetails = () => {
           <AnimatedSection>
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="w-full md:w-1/2 bg-card rounded-2xl p-6 flex items-center justify-center border border-border">
-                <img src={image || "/placeholder.svg"} alt={name} width={400} height={400} className="max-h-[400px] object-contain rounded-lg shadow-2xl" />
+                <img src={item.image} alt={item.name} width={400} height={400} className="max-h-[400px] object-contain" />
               </div>
               <div className="w-full md:w-1/2 space-y-6">
                 <h1 className="text-2xl font-bold">{item.name}</h1>
