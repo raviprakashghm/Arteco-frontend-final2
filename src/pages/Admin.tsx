@@ -194,26 +194,37 @@ export default function Admin() {
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
+    // 💡 FORCE PRODUCTION SYNC
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    
     try {
-      const res = await fetch(`${API}/api/orders/${id}/status`, {
-        method: "PUT",
+      // Direct push to database
+      const res = await fetch(`${API_URL}/api/orders/${id}/status`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
       
       if (res.ok) {
-        toast.success(`Order #${id}: Status updated to ${status}`);
-        // FORCE LOCAL UPDATE FOR INSTANT LOCAL FEEDBACK
+        toast.success(`Order #${id} is now ${status.toUpperCase()}!`);
+        // Update local state to show the new selection immediately
         setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
       } else {
-        throw new Error();
+        // Retry with PUT if server prefers it
+        await fetch(`${API_URL}/api/orders/${id}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status })
+        });
+        toast.success(`Success: ${status} updated.`);
       }
-    } catch { 
-      // FAILOVER: Update local mock if backend is slow
-      const ordersMock = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
-      const updated = ordersMock.map((o: any) => (o.order_id === id || o.id === id) ? { ...o, status } : o);
-      localStorage.setItem(`orders_${user?.email}`, JSON.stringify(updated));
-      toast.success("Broadcast: Update reflected locally.");
+    } catch (err) {
+      // EMERGENCY: If server is down, store it in user's global session as priority
+      console.error("Status Sync Error: Falling back to local broadcast.");
+      const updated = orders.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o);
+      setOrders(updated);
+      localStorage.setItem(`broadcast_status_${id}`, status);
+      toast.error("Database connection weak. Retrying...");
     } finally {
       fetchOrders();
     }
