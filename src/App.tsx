@@ -27,8 +27,17 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
+
+const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (isAuthenticated) return <Navigate to="/profile" replace />;
+  return <>{children}</>;
+};
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -50,8 +59,8 @@ const AnimatedRoutes = () => {
         <Route path="/order-confirmation" element={<OrderConfirmation />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+        <Route path="/signup" element={<PublicOnlyRoute><Signup /></PublicOnlyRoute>} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />

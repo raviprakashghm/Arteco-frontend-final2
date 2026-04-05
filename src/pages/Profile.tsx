@@ -6,7 +6,9 @@ import PageTransition from "@/components/PageTransition";
 import AnimatedSection from "@/components/AnimatedSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { User, LogOut, Package, Settings, Edit3 } from "lucide-react";
+import { User, LogOut, Package, Settings, Edit3, Mail, Trash2 } from "lucide-react";
+import { updateEmail, deleteUser } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export interface OrderRecord {
   id: string;
@@ -24,6 +26,11 @@ const Profile = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "orders");
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [newEmail, setNewEmail] = useState("");
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
 
   useEffect(() => {
     setActiveTab(searchParams.get("tab") || "orders");
@@ -108,6 +115,37 @@ const Profile = () => {
     await logout();
     toast.success("Logged out");
     navigate("/");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm("Are you strictly sure you want to delete your account? This cannot be undone.")) {
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/users/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: user?.email, email: user?.email })
+        });
+        if(auth.currentUser) await deleteUser(auth.currentUser);
+        await logout();
+        toast.success("Account securely deleted");
+        navigate("/");
+      } catch (e: any) {
+        toast.error("Error deleting account. Re-authenticate and try again.");
+      }
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!newEmail) return;
+    try {
+      if (auth.currentUser) {
+        await updateEmail(auth.currentUser, newEmail);
+        toast.success("Email successfully updated to " + newEmail);
+        setIsEditingEmail(false);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Please re-login to update your email for security reasons.");
+    }
   };
 
   const handleCancelOrder = (id: string) => {
@@ -317,8 +355,24 @@ const Profile = () => {
                     <div className="space-y-4">
                       <div className="rounded-xl bg-card border border-border p-5 flex items-start justify-between">
                         <div>
-                          <p className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1">Email Address</p>
-                          <p className="text-base font-medium">{user?.email}</p>
+                          <p className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1 flex items-center gap-2">
+                            Email Address 
+                            <Edit3 className="w-3 h-3 cursor-pointer hover:text-primary" onClick={() => setIsEditingEmail(!isEditingEmail)} />
+                          </p>
+                          {isEditingEmail ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <input 
+                                type="email" 
+                                className="auth-input py-1 px-2 text-sm max-w-[200px]" 
+                                value={newEmail}
+                                placeholder="New Email"
+                                onChange={e => setNewEmail(e.target.value)}
+                              />
+                              <button onClick={handleUpdateEmail} className="text-primary font-bold text-xs hover:underline">Save</button>
+                            </div>
+                          ) : (
+                            <p className="text-base font-medium">{user?.email}</p>
+                          )}
                           <p className="text-xs text-primary mt-1 flex items-center gap-1">
                             <span className="w-2 h-2 rounded-full bg-primary inline-block"></span> Verified
                           </p>
@@ -353,27 +407,31 @@ const Profile = () => {
                           <p className="font-semibold text-sm">Email Notifications</p>
                           <p className="text-xs text-muted-foreground mt-0.5">Receive order updates via email</p>
                         </div>
-                        <div className="w-10 h-6 bg-primary rounded-full relative cursor-pointer">
-                          <div className="w-4 h-4 bg-black rounded-full absolute right-1 top-1"></div>
-                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={emailEnabled} onChange={() => setEmailEnabled(!emailEnabled)} />
+                          <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-sm">WhatsApp Alerts</p>
                           <p className="text-xs text-muted-foreground mt-0.5">Receive receipts on WhatsApp</p>
                         </div>
-                        <div className="w-10 h-6 bg-primary rounded-full relative cursor-pointer">
-                          <div className="w-4 h-4 bg-black rounded-full absolute right-1 top-1"></div>
-                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={whatsappEnabled} onChange={() => setWhatsappEnabled(!whatsappEnabled)} />
+                          <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-6">
-                    <h3 className="text-lg font-bold text-destructive mb-2">Danger Zone</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Permanently delete your account and all associated data.</p>
-                    <button className="bg-destructive text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-destructive/90 transition-colors shadow-lg shadow-destructive/20">
-                      Delete Account
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-6 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-bold text-destructive mb-1">Danger Zone</h3>
+                      <p className="text-sm text-muted-foreground">Permanently delete your account and all associated data.</p>
+                    </div>
+                    <button onClick={handleDeleteAccount} className="bg-destructive text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-destructive/90 transition-colors shadow-lg shadow-destructive/20 flex items-center gap-2">
+                       <Trash2 className="w-4 h-4"/> Delete Account
                     </button>
                   </div>
                 </div>

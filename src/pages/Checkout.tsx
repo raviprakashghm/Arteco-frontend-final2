@@ -49,8 +49,29 @@ const Checkout = () => {
     setIsProcessing(true);
     
     if (paymentMethod === "COD") {
-      // Direct placement without Razorpay
-      await processLocalOrderAndNavigate("Processing");
+      try {
+        const orderId = `ART${new Date().getFullYear()}${Math.floor(1000 + Math.random() * 9000)}`;
+        // Save via Backend directly
+        const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/payment/cod`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_id: orderId,
+            orderDetails: {
+              email: user?.email,
+              items,
+              amount: orderTotal,
+              address: `${address}, ${pincode}`,
+              phone
+            }
+          })
+        });
+        
+        await processLocalOrderAndNavigate("Processing");
+      } catch (e) {
+        toast.error("Failed to place COD order");
+        setIsProcessing(false);
+      }
       return;
     }
 
@@ -247,12 +268,14 @@ const Checkout = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">Pincode</label>
+                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">Pincode *</label>
                       <input 
                         required
                         type="text"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
                         value={pincode}
-                        onChange={(e) => setPincode(e.target.value)}
+                        onChange={(e) => setPincode(e.target.value.replace(/\\D/g, ''))}
                         className="auth-input"
                         placeholder="110001"
                       />

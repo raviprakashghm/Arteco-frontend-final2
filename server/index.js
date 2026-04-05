@@ -100,6 +100,83 @@ app.post('/api/payment/verify-payment', async (req, res) => {
   }
 });
 
+// COD Endpoint to trigger emails and save
+app.post('/api/payment/cod', async (req, res) => {
+  try {
+    const { orderDetails, order_id } = req.body;
+    const deliveryDate = new Date();
+    deliveryDate.setDate(deliveryDate.getDate() + 6);
+    const expectedDeliveryStr = deliveryDate.toISOString().split('T')[0];
+
+    const { data: savedOrder, error } = await supabase
+      .from('orders')
+      .insert([
+        {
+          order_id: order_id,
+          razorpay_order_id: 'COD',
+          razorpay_payment_id: 'COD',
+          user_email: orderDetails.email,
+          items: orderDetails.items,
+          amount: orderDetails.amount,
+          status: 'Processing',
+          expected_delivery_date: expectedDeliveryStr,
+          shipping_address: orderDetails.address,
+          created_at: new Date()
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) console.error('Supabase Error:', error);
+
+    const finalOrder = savedOrder || { 
+      id: order_id, 
+      user_email: orderDetails.email, 
+      amount: orderDetails.amount * 100, 
+      expected_delivery_date: expectedDeliveryStr,
+      items: orderDetails.items 
+    };
+
+    // Background task: Generate PDF & Send Notifications
+    sendOrderConfirmation(finalOrder);
+
+    res.json({ success: true, message: 'COD Order placed successfully.', order: finalOrder });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ---- Admin Users CRUD ----
+app.get('/api/admin/users', async (req, res) => {
+  const { data, error } = await supabase.from('users').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/admin/deleted-users', async (req, res) => {
+  const { data, error } = await supabase.from('deleted_accounts').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/admin/users/delete', async (req, res) => {
+  const { id, email } = req.body;
+  // Move to deleted_accounts
+  await supabase.from('deleted_accounts').insert([{ user_id: id, email }]);
+  // Delete from users table
+  const { data, error } = await supabase.from('users').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+// Create User in DB manually
+app.post('/api/users/sync', async (req, res) => {
+  const { id, email, name, phone } = req.body;
+  const { data, error } = await supabase.from('users').upsert([{ id, email, name, phone, created_at: new Date() }]).select();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data[0]);
+});
+
 // ---- Admin Products CRUD ----
 app.get('/api/admin/products', async (req, res) => {
   const { data, error } = await supabase.from('products').select('*');

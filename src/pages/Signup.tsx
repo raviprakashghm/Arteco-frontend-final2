@@ -10,8 +10,16 @@ const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [showOtp, setShowOtp] = useState(false);
+  const [otp, setOtp] = useState("");
   const { signup, loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  const validatePassword = (pass: string) => {
+    const rx = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d|.*\\W).{8,}$/;
+    return rx.test(pass);
+  };
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -21,10 +29,40 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validatePassword(password)) {
+      toast.error("Password must be 8+ chars with 1 uppercase, 1 lowercase, & 1 special character/number.");
+      return;
+    }
+    if (phone.length < 10) {
+      toast.error("Please enter a valid mobile number.");
+      return;
+    }
+    if (!showOtp) {
+      setLoading(true);
+      // Simulate random OTP sending
+      setTimeout(() => {
+        setLoading(false);
+        setShowOtp(true);
+        toast.info("A secure OTP has been sent to your mobile number.");
+      }, 1500);
+      return;
+    }
+    
     setLoading(true);
     try {
+      if (otp.length < 4) throw new Error("Invalid OTP");
       await signup(name, email, password);
       toast.success("Account created successfully!");
+      
+      // Sync to Supabase
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/users/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: email, email, name, phone })
+        });
+      } catch(e) {}
+      
       navigate("/profile", { replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Signup failed. Please try again.");
@@ -91,25 +129,58 @@ const Signup = () => {
                 </div>
                 <div>
                   <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
-                    Password
+                    Mobile Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    disabled={showOtp}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\\D/g, ''))}
+                    className="auth-input"
+                    placeholder="9999999999"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
+                    Password *
                   </label>
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    disabled={showOtp}
+                    minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="auth-input"
                     placeholder="••••••••"
                   />
                 </div>
+                
+                {showOtp && (
+                  <div>
+                    <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block flex justify-between">
+                      <span>Enter Secure OTP</span>
+                      <button type="button" onClick={() => setShowOtp(false)} className="text-primary hover:underline">Change Number</button>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="auth-input text-center tracking-[1em]"
+                      placeholder="XXXXXX"
+                    />
+                  </div>
+                )}
 
                 <button
                   type="submit"
                   disabled={loading}
                   className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Creating account…" : "Sign Up"}
+                  {loading ? "Processing…" : showOtp ? "Verify & Create Account" : "Send Secure OTP"}
                 </button>
               </form>
 

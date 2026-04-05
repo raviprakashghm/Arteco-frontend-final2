@@ -32,7 +32,7 @@ const Header = () => {
             </button>
           )}
           <Link to="/" className="flex items-center gap-2">
-            <img src={artecoLogo} alt="Arteco" className="h-8 w-8 hover:scale-105 transition-transform" />
+            <img src={artecoLogo} alt="Arteco" className="h-12 w-12 md:h-14 md:w-14 hover:scale-105 transition-transform" />
           </Link>
         </div>
 
