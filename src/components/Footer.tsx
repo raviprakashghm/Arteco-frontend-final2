@@ -1,8 +1,26 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Mail, Instagram, Twitter, Linkedin } from "lucide-react";
 import artecoLogo from "@/assets/arteco-logo.png";
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const Footer = () => {
+  const [content, setContent] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch(`${API}/api/content`)
+      .then(r => r.ok ? r.json() : {})
+      .then(d => setContent(d))
+      .catch(() => {});
+  }, []);
+
+  const bio = content.footer_bio || "BUILT BY ARCHITECTS FOR ARCHITECTURAL STUDENTS";
+  const instagram = content.instagram_url || "#";
+  const twitter = content.twitter_url || "#";
+  const linkedin = content.linkedin_url || "#";
+  const contactEmail = content.contact_email || "";
+
   return (
     <footer className="bg-accent border-t border-border">
       <div className="container mx-auto px-6 py-12">
@@ -12,9 +30,7 @@ const Footer = () => {
             <div className="flex items-center gap-3">
               <img src={artecoLogo} alt="Arteco" className="h-10 w-10" />
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              BUILT BY ARCHITECTS FOR ARCHITECTURAL STUDENTS
-            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{bio}</p>
           </div>
 
           {/* Company */}
@@ -44,16 +60,16 @@ const Footer = () => {
             <div>
               <h4 className="font-bold text-sm tracking-wider mb-4">FOLLOW US</h4>
               <div className="flex gap-3">
-                <a href="#" className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
+                <a href={instagram} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
                   <Instagram className="h-4 w-4" />
                 </a>
-                <a href="#" className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
+                <a href={contactEmail ? `mailto:${contactEmail}` : "#"} className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
                   <Mail className="h-4 w-4" />
                 </a>
-                <a href="#" className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
+                <a href={twitter} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
                   <Twitter className="h-4 w-4" />
                 </a>
-                <a href="#" className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
+                <a href={linkedin} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors">
                   <Linkedin className="h-4 w-4" />
                 </a>
               </div>

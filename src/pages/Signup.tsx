@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import PageTransition from "@/components/PageTransition";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { logUserAction } from "@/lib/logger";
 
 const Signup = () => {
   const [name, setName] = useState("");
@@ -17,7 +18,8 @@ const Signup = () => {
   const navigate = useNavigate();
 
   const validatePassword = (pass: string) => {
-    const rx = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d|.*\\W).{8,}$/;
+    // 8+ chars, at least 1 uppercase, 1 lowercase, 1 digit or special char
+    const rx = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\d\W]).{8,}$/;
     return rx.test(pass);
   };
 
@@ -53,6 +55,7 @@ const Signup = () => {
       if (otp.length < 4) throw new Error("Invalid OTP");
       await signup(name, email, password);
       toast.success("Account created successfully!");
+      logUserAction(email, "SIGNUP", `New account created. Phone: ${phone}`);
       
       // Sync to Supabase
       try {

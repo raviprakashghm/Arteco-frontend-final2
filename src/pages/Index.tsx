@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
@@ -7,6 +7,8 @@ import OfferingCard from "@/components/OfferingCard";
 import ReviewsSection from "@/components/ReviewsSection";
 import AnimatedSection from "@/components/AnimatedSection";
 import PageTransition from "@/components/PageTransition";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 import vendingMachineImg from "@/assets/vending-machine.jpg";
 import onlineStationeryImg from "@/assets/online-stationery.jpg";
@@ -26,6 +28,19 @@ const offerings = [
 
 const Index = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [cms, setCms] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch(`${API}/api/content`)
+      .then(r => r.ok ? r.json() : {})
+      .then(d => setCms(d))
+      .catch(() => {});
+  }, []);
+
+  const trust1 = cms.trust_1 || "Trusted by architecture schools nationwide";
+  const trust2 = cms.trust_2 || "Over 500+ premium architectural tools";
+  const trust3 = cms.trust_3 || "24/7 Support for students";
+  const heroTagline = cms.hero_tagline || "From sheets to software courses, we have what you need.";
 
   const scrollLeft = () => {
     if (scrollRef.current) {
@@ -66,7 +81,7 @@ const Index = () => {
               ACADEMIC NEEDS.
             </h2>
             <p className="text-xs md:text-sm text-muted-foreground mt-5 tracking-[0.18em] uppercase">
-              From sheets to software courses, we have what you need.
+              {heroTagline}
             </p>
           </AnimatedSection>
 
@@ -123,8 +138,8 @@ const Index = () => {
             <div className="container mx-auto text-center">
               <h2 className="text-2xl md:text-3xl font-bold mb-10 tracking-wider uppercase">Trusted By</h2>
               <div className="flex justify-center gap-6 flex-wrap">
-                {["Partner 1", "Partner 2", "Partner 3"].map((p) => (
-                  <div key={p} className="trusted-logo">{p}</div>
+                {[trust1, trust2, trust3].map((t) => (
+                  <div key={t} className="trusted-logo">{t}</div>
                 ))}
               </div>
             </div>

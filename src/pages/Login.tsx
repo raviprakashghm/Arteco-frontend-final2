@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import PageTransition from "@/components/PageTransition";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { logUserAction } from "@/lib/logger";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -24,6 +25,7 @@ const Login = () => {
     try {
       await login(email, password);
       toast.success("Logged in successfully!");
+      logUserAction(email, "LOGIN", "Email/password login successful");
       navigate("/profile", { replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Login failed. Please try again.");
@@ -36,6 +38,7 @@ const Login = () => {
     try {
       await loginWithGoogle();
       toast.success("Logged in with Google!");
+      logUserAction(email || "google-user", "LOGIN", "Google OAuth login");
       navigate("/profile", { replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Google login failed.");

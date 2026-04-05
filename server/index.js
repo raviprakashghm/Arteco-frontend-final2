@@ -159,13 +159,46 @@ app.get('/api/admin/deleted-users', async (req, res) => {
   res.json(data);
 });
 
+// ---- Activity Logs ----
+app.get('/api/admin/logs', async (req, res) => {
+  const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/logs', async (req, res) => {
+  const { user_email, action, details } = req.body;
+  await supabase.from('activity_logs').insert([{ user_email, action, details, created_at: new Date() }]);
+  res.json({ success: true });
+});
+
+// ---- Site Content CMS ----
+app.get('/api/content', async (req, res) => {
+  const { data, error } = await supabase.from('site_content').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  const contentMap = data.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {});
+  res.json(contentMap);
+});
+
+app.post('/api/content', async (req, res) => {
+  const { key, value } = req.body;
+  const { data, error } = await supabase.from('site_content').upsert([{ key, value }]).select();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, data });
+});
+
 app.post('/api/admin/users/delete', async (req, res) => {
   const { id, email } = req.body;
-  // Move to deleted_accounts
-  await supabase.from('deleted_accounts').insert([{ user_id: id, email }]);
+  // Move to deleted_accounts archive with timestamp
+  await supabase.from('deleted_accounts').insert([{ user_id: id, email, created_at: new Date() }]);
   // Delete from users table
-  const { data, error } = await supabase.from('users').delete().eq('id', id);
-  if (error) return res.status(500).json({ error: error.message });
+  const { error } = await supabase.from('users').delete().eq('id', id);
+  if (error) {
+    // Also try by email
+    await supabase.from('users').delete().eq('email', email);
+  }
+  // Log it
+  await supabase.from('activity_logs').insert([{ user_email: email, action: 'ACCOUNT_DELETED', details: 'User deleted their account', created_at: new Date() }]);
   res.json({ success: true });
 });
 
@@ -216,9 +249,23 @@ app.get('/api/orders', async (req, res) => {
 
 app.put('/api/orders/:id/status', async (req, res) => {
   const { status } = req.body;
-  const { data, error } = await supabase.from('orders').update({ status }).eq('id', req.params.id).select();
+  // Try matching by id or order_id
+  let { data, error } = await supabase.from('orders').update({ status }).eq('order_id', req.params.id).select();
+  if (!data?.length) {
+    ({ data, error } = await supabase.from('orders').update({ status }).eq('id', req.params.id).select());
+  }
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data[0]);
+  res.json(data?.[0] || { success: true });
+});
+
+app.put('/api/orders/:id/amount', async (req, res) => {
+  const { amount } = req.body;
+  let { data, error } = await supabase.from('orders').update({ amount }).eq('order_id', req.params.id).select();
+  if (!data?.length) {
+    ({ data, error } = await supabase.from('orders').update({ amount }).eq('id', req.params.id).select());
+  }
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data?.[0] || { success: true });
 });
 
 const PORT = process.env.PORT || 5000;
