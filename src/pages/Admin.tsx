@@ -148,7 +148,19 @@ export default function Admin() {
   };
 
   const fetchProducts = async () => {
-    try { const res = await fetch(`${API}/api/admin/products`); if (res.ok) setProducts(await res.json()); } catch { }
+    try { 
+      const res = await fetch(`${API}/api/admin/products`); 
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data);
+        return;
+      }
+    } catch (err) {
+      console.error("fetchProducts error:", err);
+    }
+    // Fallback if API fails (session-only demo)
+    const local = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+    setProducts(local);
   };
 
   const fetchUsers = async () => {
@@ -259,8 +271,17 @@ export default function Admin() {
       }
     } catch { 
       toast.success(isEdit ? "Updated product in session" : "Added product in session");
+      // Local Save Fallback
+      const local = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+      if (isEdit) {
+        const idx = local.findIndex((it: Product) => it.id === p.id);
+        if (idx > -1) local[idx] = p;
+      } else {
+        local.push({ ...p, id: `p_${Date.now()}` });
+      }
+      localStorage.setItem("admin_products_mock", JSON.stringify(local));
     } finally {
-      await fetchProducts(); // Force re-fetch from database immediately
+      await fetchProducts(); 
       setShowProductModal(false);
       setEditingProduct(undefined);
     }
@@ -491,24 +512,53 @@ export default function Admin() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {products.map((p, i) => (
-                      <div key={i} className="bg-card border border-border rounded-2xl p-5 space-y-3 hover:border-primary/40 transition-colors">
-                        {p.image && <img src={p.image} alt={p.name} className="w-full h-36 object-cover rounded-xl bg-secondary" />}
-                        <p className="font-bold">{p.name}</p>
-                        <p className="text-sm text-primary font-bold">₹{p.price}</p>
-                        {p.category && <span className="text-xs bg-secondary px-2 py-0.5 rounded-full border border-border">{p.category}</span>}
-                        {p.description && <p className="text-xs text-muted-foreground line-clamp-2">{p.description}</p>}
-                        <div className="flex gap-2 pt-2">
+                      <div key={p.id || i} className="bg-card border border-border rounded-2xl p-5 space-y-3 hover:border-primary/40 transition-all group relative overflow-hidden">
+                        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                           <button
                             onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
-                            className="flex-1 text-xs flex items-center justify-center gap-1 py-1.5 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                            className="p-2 bg-primary text-black rounded-full hover:scale-110 shadow-lg"
+                            title="Edit Product"
                           >
-                            <FileEdit size={13} /> Edit
+                            <FileEdit size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(p.id)}
-                            className="flex-1 text-xs flex items-center justify-center gap-1 py-1.5 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors"
+                            className="p-2 bg-destructive text-white rounded-full hover:scale-110 shadow-lg"
+                            title="Delete Product"
                           >
-                            <Trash2 size={13} /> Delete
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        
+                        {p.image ? (
+                          <img src={p.image} alt={p.name} className="w-full h-40 object-cover rounded-xl bg-secondary transition-transform group-hover:scale-[1.02]" />
+                        ) : (
+                          <div className="w-full h-40 rounded-xl bg-secondary flex items-center justify-center">
+                            <Package className="w-8 h-8 text-muted-foreground opacity-20" />
+                          </div>
+                        )}
+                        
+                        <div className="pt-2">
+                          <p className="font-bold text-lg leading-tight line-clamp-1">{p.name}</p>
+                          <p className="text-primary font-bold text-base mt-0.5">₹{p.price}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded-full border border-border uppercase tracking-widest font-semibold">{p.category || "General"}</span>
+                          </div>
+                          {p.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed">{p.description}</p>}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-2 md:hidden">
+                          <button
+                            onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
+                            className="text-[10px] flex items-center justify-center gap-1 py-2 bg-white/5 rounded-lg border border-border"
+                          >
+                            <FileEdit size={12} /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="text-[10px] flex items-center justify-center gap-1 py-2 bg-destructive/10 text-destructive rounded-lg border border-destructive/20"
+                          >
+                            <Trash2 size={12} /> Delete
                           </button>
                         </div>
                       </div>
