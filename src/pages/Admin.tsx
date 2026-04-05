@@ -447,9 +447,105 @@ export default function Admin() {
               </div>
             )}
             
-            {/* ... Other Tabs (Simplified but intact) ... */}
-            {activeTab === "users" && <div className="p-8 text-center bg-card border border-border rounded-2xl">User List (Check Overview for recent)</div>}
-            {activeTab === "logs" && <div className="p-8 text-center bg-card border border-border rounded-2xl">Activity Logs (Check Console)</div>}
+            {activeTab === "users" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-border/30">
+                  <h2 className="text-2xl font-bold tracking-tight">Registered Users</h2>
+                  <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-xs font-bold">{usersList.length} Accounts</span>
+                </div>
+                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="border-b border-zinc-800 bg-zinc-900/40 text-muted-foreground text-[11px] uppercase tracking-[0.2em] font-bold">
+                          <th className="p-5">Name</th>
+                          <th className="p-5">Email Address</th>
+                          <th className="p-5">Phone Number</th>
+                          <th className="p-5">Joined ARTECO</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {usersList.map((u, i) => (
+                          <tr key={i} className="border-b border-zinc-800/50 hover:bg-white/3 transition-colors group">
+                            <td className="p-5 font-bold group-hover:text-primary transition-colors">{u.name || "—"}</td>
+                            <td className="p-5 text-zinc-300 font-mono text-xs">{u.email}</td>
+                            <td className="p-5 text-muted-foreground">{u.phone || "—"}</td>
+                            <td className="p-5 text-xs text-muted-foreground/60">{new Date(u.created_at).toLocaleString('en-IN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {usersList.length === 0 && <div className="p-20 text-center text-muted-foreground/40 font-bold uppercase tracking-widest">No users detected in database.</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "logs" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4 pb-4 border-b border-border/30">
+                   <h2 className="text-2xl font-bold tracking-tight">System Activity</h2>
+                   <input className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-xs focus:border-primary focus:outline-none w-64" placeholder="Search user or action..." value={logFilter} onChange={(e) => setLogFilter(e.target.value)} />
+                </div>
+                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-3xl overflow-hidden">
+                  <div className="overflow-x-auto max-h-[60vh] scrollbar-thin">
+                    <table className="w-full text-sm text-left">
+                      <thead className="sticky top-0 bg-zinc-900 z-10 border-b border-zinc-800">
+                        <tr className="text-muted-foreground text-[10px] uppercase tracking-[0.2em] font-bold">
+                          <th className="p-5">Timestamp</th>
+                          <th className="p-5">User</th>
+                          <th className="p-5">Action</th>
+                          <th className="p-5">Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredLogs.map((log, i) => (
+                          <tr key={i} className="border-b border-zinc-800/30 hover:bg-white/3 transition-colors">
+                            <td className="p-5 text-[10px] text-zinc-500 font-mono whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</td>
+                            <td className="p-5 font-bold text-xs">{log.user_email}</td>
+                            <td className="p-5"><span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] font-bold border border-primary/20">{log.action}</span></td>
+                            <td className="p-5 text-zinc-400 text-xs leading-relaxed max-w-[300px] truncate">{log.details}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── DELETED ACCOUNTS ─── */}
+            {activeTab === "deleted" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-red-500/20">
+                  <h2 className="text-2xl font-bold tracking-tight text-red-500 flex items-center gap-2"><ShieldAlert size={24}/> Deleted Accounts Archive</h2>
+                  <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">{deletedUsers.length} Protected Logs</span>
+                </div>
+                <div className="bg-red-500/5 border border-red-500/20 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(239,68,68,0.05)]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="border-b border-red-500/20 bg-red-500/5 text-red-400 text-[11px] uppercase tracking-[0.2em] font-bold">
+                          <th className="p-5">Archive User ID</th>
+                          <th className="p-5">Email Address</th>
+                          <th className="p-5">Deletion Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deletedUsers.map((du, i) => (
+                          <tr key={i} className="border-b border-red-500/10 hover:bg-red-500/10 transition-colors">
+                            <td className="p-5 text-xs text-muted-foreground font-mono">{du.user_id}</td>
+                            <td className="p-5 font-bold text-red-300">{du.email}</td>
+                            <td className="p-5 text-xs text-muted-foreground/60">{new Date(du.created_at).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {deletedUsers.length === 0 && <div className="p-20 text-center text-red-500/40 font-bold uppercase tracking-widest">Archive is empty. No accounts have been deleted.</div>}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
