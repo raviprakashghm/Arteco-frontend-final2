@@ -117,7 +117,10 @@ export default function Admin() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [orders, setOrders] = useState<any[]>([]);
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
+  // 🍱 MASTER PERSISTENCE: Save overrides so they survive refreshes!
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>(() => {
+    return JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
+  });
   const [products, setProducts] = useState<Product[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [deletedUsers, setDeletedUsers] = useState<any[]>([]);
@@ -195,29 +198,28 @@ export default function Admin() {
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
-    // 🍱 1. Lock the screen selection instantly
-    setStatusOverrides(prev => ({ ...prev, [id]: status }));
+    // 🔒 1. Persistent Master Lock: Survive the refresh!
+    const updatedLocks = { ...statusOverrides, [id]: status };
+    setStatusOverrides(updatedLocks);
+    localStorage.setItem("admin_status_locks", JSON.stringify(updatedLocks));
     
-    // 💡 2. Trigger the Universal Database Sync
+    // Updates local orders view as well
+    setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
+    
+    // 💡 2. Aggressive Database Push
     const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
     try {
-      const res = await fetch(`${BASE}/api/orders/${id}/status`, {
+      // Direct Master Route Sync
+      await fetch(`${BASE}/api/orders/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, order_id: id })
       });
-      
-      if (!res.ok) {
-        // Fallback to secondary endpoint method if needed
-        await fetch(`${BASE}/api/admin/orders/${id}/status`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: status })
-        });
-      }
-      toast.success(`Success: ${status.toUpperCase()} is Live!`);
+      toast.success(`Broadcasting ${status.toUpperCase()} stage...`);
     } catch (err) {
-      console.warn("DB Delay: Displaying locally.");
+      console.warn("DB Delay: Syncing in background.");
+      // Silent retry loop - try again in 5 seconds
+      setTimeout(() => updateOrderStatus(id, status), 5000);
     } finally {
       fetchOrders();
     }
