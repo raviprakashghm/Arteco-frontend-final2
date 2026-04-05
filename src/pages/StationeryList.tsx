@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Package } from "lucide-react";
 import Header from "@/components/Header";
 import StepIndicator from "@/components/StepIndicator";
 import PageTransition from "@/components/PageTransition";
@@ -27,55 +27,44 @@ const StationeryList = () => {
     { title: "Thermocol Sheet", image: thermocolImg, id: "thermocol-sheet", category: "stationery", price: 180 },
   ];
 
-  useEffect(() => {
-    fetch(`${API}/api/admin/products`)
-      .then(res => res.json())
-      .then(data => {
-        // Safe check for data type
-        const apiData = Array.isArray(data) ? data : [];
-        
-        // Filter DB items for this category (case-insensitive)
-        const dbItems = apiData.filter((p: any) => 
-          p.category?.toLowerCase() === "stationery" || 
-          p.category?.toLowerCase() === "stationery"
-        );
-        
-        // Smart Merge: Keep all legacy, add unique DB items
-        const merged = [...legacyStationery];
-        
-        dbItems.forEach((db: any) => {
-          // Check if it already exists by name (to avoid duplicates if we add same name in DB)
-          const existsIdx = merged.findIndex(m => 
-            (db.id && m.id === db.id) || 
-            (db.name && m.title?.toLowerCase() === db.name.toLowerCase())
-          );
-          
-          if (existsIdx > -1) {
-            // Update existing with DB values (but keep legacy image if DB has none)
-            merged[existsIdx] = { 
-              ...merged[existsIdx], 
-              ...db, 
-              title: db.name, 
-              image: db.image || merged[existsIdx].image 
-            };
-          } else {
-            // Add as new
-            merged.push({ 
-              ...db, 
-              title: db.name, 
-              id: db.id || `db_${db.name}` 
-            });
-          }
-        });
+  const fetchMerged = async () => {
+    try {
+      const res = await fetch(`${API}/api/admin/products`);
+      let dbItems = [];
+      if (res.ok) {
+        const data = await res.json();
+        dbItems = Array.isArray(data) ? data : [];
+      } else {
+        // Force local sync if database is down
+        dbItems = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+      }
 
-        setProducts(merged);
-        setLoading(false);
-      })
-      .catch(() => {
-        setProducts(legacyStationery);
-        setLoading(false);
+      const stationeryDb = dbItems.filter((p: any) => p.category?.toLowerCase() === "stationery");
+      
+      // Smart Merge
+      const merged = [...legacyStationery];
+      stationeryDb.forEach((db: any) => {
+        const existsIdx = merged.findIndex(m => m.title?.toLowerCase() === db.name?.toLowerCase());
+        if (existsIdx > -1) {
+          merged[existsIdx] = { ...merged[existsIdx], ...db, title: db.name };
+        } else {
+          merged.unshift({ ...db, title: db.name, id: db.id || `db_${db.name}` });
+        }
       });
-  }, []);
+      
+      setProducts(merged);
+    } catch (err) {
+      // Emergency Local Sync
+      const dbItems = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+      const stationeryDb = dbItems.filter((p: any) => p.category?.toLowerCase() === "stationery");
+      const merged = [...legacyStationery, ...stationeryDb.map((d: any) => ({ ...d, title: d.name }))];
+      setProducts(merged);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchMerged(); }, []);
 
   return (
     <PageTransition>
@@ -104,18 +93,21 @@ const StationeryList = () => {
               {products.map((item, i) => (
                 <AnimatedSection key={item.title || i} delay={i * 0.08}>
                   <Link
-                    to={`/shop/stationery/details/${item.id}`}
-                    className="group rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all"
+                    to={`/shop/stationery/details/${item.id || item.title}`}
+                    className="group rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all block h-full bg-card"
                   >
                     <div className="overflow-hidden rounded-xl m-2 bg-secondary aspect-square flex items-center justify-center">
                       <img
-                        src={item.image}
+                        src={item.image || "https://placehold.co/400x400?text=Stationery"}
                         alt={item.title}
                         loading="lazy"
                         className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
                       />
                     </div>
-                    <p className="px-4 pb-4 pt-2 text-sm font-medium text-center">{item.title}</p>
+                    <div className="p-4 pt-1 text-center">
+                      <p className="text-sm font-bold group-hover:text-primary transition-colors line-clamp-1">{item.title}</p>
+                      <p className="text-xs text-primary font-black mt-1 uppercase tracking-wider">₹{item.price}</p>
+                    </div>
                   </Link>
                 </AnimatedSection>
               ))}
