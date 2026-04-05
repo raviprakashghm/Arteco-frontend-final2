@@ -37,6 +37,7 @@ app.post('/api/payment/create-order', async (req, res) => {
 app.post('/api/payment/verify-payment', async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderDetails } = req.body;
+    const { emailEnabled = true, whatsappEnabled = true } = req.body;
     
     // Verify signature
     const text = razorpay_order_id + "|" + razorpay_payment_id;
@@ -69,6 +70,7 @@ app.post('/api/payment/verify-payment', async (req, res) => {
             status: 'Placed',
             expected_delivery_date: expectedDeliveryStr,
             shipping_address: orderDetails.address,
+            phone: orderDetails.phone || '',
             created_at: new Date()
           }
         ])
@@ -88,8 +90,11 @@ app.post('/api/payment/verify-payment', async (req, res) => {
         items: orderDetails.items 
       };
 
-      // Background task: Generate PDF & Send Notifications
-      sendOrderConfirmation(finalOrder);
+      // Fire notifications in background — respects user toggle preferences
+      sendOrderConfirmation(
+        { ...finalOrder, phone: orderDetails?.phone },
+        { emailEnabled, whatsappEnabled }
+      );
 
       res.json({ success: true, message: 'Payment verified and order placed.', order: finalOrder });
     } else {
@@ -103,7 +108,7 @@ app.post('/api/payment/verify-payment', async (req, res) => {
 // COD Endpoint to trigger emails and save
 app.post('/api/payment/cod', async (req, res) => {
   try {
-    const { orderDetails, order_id } = req.body;
+    const { orderDetails, order_id, emailEnabled = true, whatsappEnabled = true } = req.body;
     const deliveryDate = new Date();
     deliveryDate.setDate(deliveryDate.getDate() + 6);
     const expectedDeliveryStr = deliveryDate.toISOString().split('T')[0];
@@ -121,6 +126,7 @@ app.post('/api/payment/cod', async (req, res) => {
           status: 'Processing',
           expected_delivery_date: expectedDeliveryStr,
           shipping_address: orderDetails.address,
+          phone: orderDetails.phone || '',
           created_at: new Date()
         }
       ])
@@ -137,8 +143,11 @@ app.post('/api/payment/cod', async (req, res) => {
       items: orderDetails.items 
     };
 
-    // Background task: Generate PDF & Send Notifications
-    sendOrderConfirmation(finalOrder);
+    // Fire notifications in background — respects user toggle preferences
+    sendOrderConfirmation(
+      { ...finalOrder, phone: orderDetails?.phone },
+      { emailEnabled, whatsappEnabled }
+    );
 
     res.json({ success: true, message: 'COD Order placed successfully.', order: finalOrder });
   } catch (error) {

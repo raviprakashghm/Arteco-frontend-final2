@@ -35,6 +35,10 @@ const Checkout = () => {
 
   const orderTotal = items.length > 0 ? totalPrice + DELIVERY_FEE : 0;
 
+  // Read notification preferences the user set in their Profile > Settings
+  const emailEnabled = localStorage.getItem("arteco_email_notif") !== "false";
+  const whatsappEnabled = localStorage.getItem("arteco_whatsapp_notif") !== "false";
+
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) {
@@ -57,6 +61,8 @@ const Checkout = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             order_id: orderId,
+            emailEnabled,
+            whatsappEnabled,
             orderDetails: {
               email: user?.email,
               items,
@@ -106,6 +112,8 @@ const Checkout = () => {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
+                emailEnabled,
+                whatsappEnabled,
                 orderDetails: {
                   email: user?.email,
                   items,

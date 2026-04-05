@@ -27,10 +27,15 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "orders");
   const [orders, setOrders] = useState<OrderRecord[]>([]);
 
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(() =>
+    localStorage.getItem("arteco_whatsapp_notif") !== "false"
+  );
+  const [emailEnabled, setEmailEnabled] = useState(() =>
+    localStorage.getItem("arteco_email_notif") !== "false"
+  );
   const [newEmail, setNewEmail] = useState("");
   const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
 
   useEffect(() => {
     setActiveTab(searchParams.get("tab") || "orders");
@@ -46,8 +51,23 @@ const Profile = () => {
   useEffect(() => {
     if (user?.email) {
       fetchOrders();
+      // Poll every 30 seconds to reflect admin status changes
+      const interval = setInterval(fetchOrders, 30000);
+      return () => clearInterval(interval);
     }
   }, [user]);
+
+  const handleToggleWhatsapp = (val: boolean) => {
+    setWhatsappEnabled(val);
+    localStorage.setItem("arteco_whatsapp_notif", String(val));
+    toast.success(val ? "WhatsApp alerts enabled" : "WhatsApp alerts disabled");
+  };
+
+  const handleToggleEmail = (val: boolean) => {
+    setEmailEnabled(val);
+    localStorage.setItem("arteco_email_notif", String(val));
+    toast.success(val ? "Email notifications enabled" : "Email notifications disabled");
+  };
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -136,15 +156,26 @@ const Profile = () => {
   };
 
   const handleUpdateEmail = async () => {
-    if (!newEmail) return;
+    if (!newEmail || !newEmail.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    setEmailLoading(true);
     try {
       if (auth.currentUser) {
         await updateEmail(auth.currentUser, newEmail);
         toast.success("Email successfully updated to " + newEmail);
         setIsEditingEmail(false);
+        setNewEmail("");
       }
     } catch (e: any) {
-      toast.error(e.message || "Please re-login to update your email for security reasons.");
+      if (e.code === "auth/requires-recent-login") {
+        toast.error("For security, please log out and log back in, then try changing your email.");
+      } else {
+        toast.error(e.message || "Failed to update email.");
+      }
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -399,32 +430,78 @@ const Profile = () => {
               {/* SETTINGS TAB */}
               {activeTab === "settings" && (
                 <div className="max-w-xl space-y-6">
+
+                  {/* Change Email */}
                   <div className="bg-card border border-border rounded-2xl p-6">
-                    <h3 className="text-lg font-bold mb-4">Preferences</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> Change Email Address</h3>
+                    {isEditingEmail ? (
+                      <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground">Current: <span className="text-foreground font-medium">{user?.email}</span></p>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            className="auth-input flex-1"
+                            placeholder="Enter new email address"
+                            value={newEmail}
+                            onChange={e => setNewEmail(e.target.value)}
+                          />
+                          <button
+                            onClick={handleUpdateEmail}
+                            disabled={emailLoading}
+                            className="px-4 py-2 bg-primary text-black font-bold rounded-lg text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          >
+                            {emailLoading ? "Saving…" : "Save"}
+                          </button>
+                        </div>
+                        <button onClick={() => { setIsEditingEmail(false); setNewEmail(""); }} className="text-xs text-muted-foreground hover:underline">
+                          Cancel
+                        </button>
+                        <p className="text-xs text-yellow-500 mt-1">⚠️ For security, you may need to re-login before changing email.</p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{user?.email}</p>
+                          <p className="text-xs text-primary mt-1">✓ Verified</p>
+                        </div>
+                        <button
+                          onClick={() => setIsEditingEmail(true)}
+                          className="flex items-center gap-2 px-4 py-2 text-sm bg-secondary border border-border rounded-lg hover:bg-white/10 transition-colors font-medium"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Change Email
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notification Toggles */}
+                  <div className="bg-card border border-border rounded-2xl p-6">
+                    <h3 className="text-lg font-bold mb-4">Notification Preferences</h3>
+                    <div className="space-y-5">
+                      <div className="flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-sm">Email Notifications</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Receive order updates via email</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Receive order receipts and updates via Email</p>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" checked={emailEnabled} onChange={() => setEmailEnabled(!emailEnabled)} />
+                          <input type="checkbox" className="sr-only peer" checked={emailEnabled} onChange={(e) => handleToggleEmail(e.target.checked)} />
                           <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                         </label>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between border-t border-border/40 pt-4">
                         <div>
                           <p className="font-semibold text-sm">WhatsApp Alerts</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Receive receipts on WhatsApp</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Receive shipment tracking via WhatsApp message</p>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" checked={whatsappEnabled} onChange={() => setWhatsappEnabled(!whatsappEnabled)} />
+                          <input type="checkbox" className="sr-only peer" checked={whatsappEnabled} onChange={(e) => handleToggleWhatsapp(e.target.checked)} />
                           <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                         </label>
                       </div>
                     </div>
                   </div>
                   
+                  {/* Danger Zone */}
                   <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-6 flex justify-between items-center">
                     <div>
                       <h3 className="text-lg font-bold text-destructive mb-1">Danger Zone</h3>
