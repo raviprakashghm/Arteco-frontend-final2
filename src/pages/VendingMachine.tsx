@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -26,6 +26,20 @@ const VendingMachine = () => {
     toast.success("Added to cart!");
     navigate("/cart");
   };
+
+  const [extraProducts, setExtraProducts] = useState<any[]>([]);
+  const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+  useEffect(() => {
+    fetch(`${API}/api/admin/products`)
+      .then(res => res.json())
+      .then(data => {
+        const apiData = Array.isArray(data) ? data : [];
+        const filtered = apiData.filter((p: any) => p.category?.toLowerCase() === "vending machine");
+        setExtraProducts(filtered);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleContact = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +132,26 @@ const VendingMachine = () => {
             </div>
           </AnimatedSection>
         </section>
+
+        {/* Extra Products from Admin */}
+        {extraProducts.length > 0 && (
+          <section className="container mx-auto px-6 py-12">
+            <AnimatedSection>
+              <h2 className="text-xl font-bold mb-6">Additional Models & Refills</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {extraProducts.map((p, i) => (
+                  <div key={p.id || i} className="bg-card border border-border rounded-2xl p-5 space-y-3">
+                    {p.image && <img src={p.image} className="w-full h-40 object-cover rounded-xl" alt={p.name} />}
+                    <h3 className="font-bold">{p.name}</h3>
+                    <p className="text-primary font-bold">₹{p.price}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{p.description}</p>
+                    <button onClick={() => { addItem({ ...p, quantity: 1 }); toast.success("Added to cart"); }} className="w-full btn-primary py-2 text-xs">Add to Cart</button>
+                  </div>
+                ))}
+              </div>
+            </AnimatedSection>
+          </section>
+        )}
 
         {/* Specifications */}
         <section className="container mx-auto px-6 py-8">

@@ -22,19 +22,32 @@ const SheetTypes = () => {
     fetch(`${API}/api/admin/products`)
       .then(res => res.json())
       .then(data => {
-        const dbSheets = data.filter((p: any) => 
+        const apiData = Array.isArray(data) ? data : [];
+        const dbSheets = apiData.filter((p: any) => 
           p.category?.toLowerCase() === "drawing sheets" || 
           p.category?.toLowerCase() === "drawing-sheets"
         );
         
-        // Merge - give database items priority if they share an ID/Name
         const merged = [...legacySheets];
         dbSheets.forEach((db: any) => {
-          const existsIdx = merged.findIndex(m => m.id === db.id || m.title === db.name);
+          const existsIdx = merged.findIndex(m => 
+            (db.id && m.id === db.id) || 
+            (db.name && m.title?.toLowerCase() === db.name.toLowerCase())
+          );
+          
           if (existsIdx > -1) {
-            merged[existsIdx] = { ...merged[existsIdx], ...db, title: db.name };
+            merged[existsIdx] = { 
+              ...merged[existsIdx], 
+              ...db, 
+              title: db.name,
+              image: db.image || merged[existsIdx].image
+            };
           } else {
-            merged.push({ ...db, title: db.name });
+            merged.push({ 
+              ...db, 
+              title: db.name,
+              id: db.id || `db_${db.name}`
+            });
           }
         });
         setProducts(merged);

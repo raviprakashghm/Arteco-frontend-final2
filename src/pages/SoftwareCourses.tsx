@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PageTransition from "@/components/PageTransition";
 import AnimatedSection from "@/components/AnimatedSection";
 import { BookOpen, Monitor, Cpu, Palette, Box, Layers } from "lucide-react";
+import { toast } from "sonner";
 
 const tiers = [
   {
@@ -43,6 +45,19 @@ const specialPlan = [
 ];
 
 const SoftwareCourses = () => {
+  const [extraCourses, setExtraCourses] = useState<any[]>([]);
+  const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+  useEffect(() => {
+    fetch(`${API}/api/admin/products`)
+      .then(res => res.json())
+      .then(data => {
+        const apiData = Array.isArray(data) ? data : [];
+        const filtered = apiData.filter((p: any) => p.category?.toLowerCase() === "software courses");
+        setExtraCourses(filtered);
+      })
+      .catch(() => {});
+  }, []);
   return (
     <PageTransition>
       <div className="min-h-screen bg-background">
@@ -93,6 +108,28 @@ const SoftwareCourses = () => {
               </AnimatedSection>
             ))}
           </div>
+
+          {/* Extra Courses from Admin */}
+          {extraCourses.length > 0 && (
+            <div className="space-y-8 mb-16">
+              <AnimatedSection>
+                <h2 className="text-2xl font-bold">ADDITIONAL COURSE MODULES</h2>
+              </AnimatedSection>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {extraCourses.map((p, i) => (
+                  <AnimatedSection key={p.id || i} delay={i * 0.08}>
+                    <div className="rounded-xl border border-border bg-card p-6 flex flex-col h-full">
+                      {p.image && <img src={p.image} className="w-full h-32 object-cover rounded-lg mb-4" alt={p.name} />}
+                      <h4 className="font-bold text-lg mb-1">{p.name}</h4>
+                      <p className="text-primary font-bold mb-3">₹{p.price}</p>
+                      <p className="text-sm text-muted-foreground flex-1 mb-4">{p.description}</p>
+                      <button onClick={() => toast.success(`Enrolling in ${p.name}...`)} className="btn-primary py-2 text-xs">Enroll Online</button>
+                    </div>
+                  </AnimatedSection>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Special Plan */}
           <AnimatedSection>

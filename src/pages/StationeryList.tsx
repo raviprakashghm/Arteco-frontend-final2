@@ -31,17 +31,43 @@ const StationeryList = () => {
     fetch(`${API}/api/admin/products`)
       .then(res => res.json())
       .then(data => {
-        const dbItems = data.filter((p: any) => p.category?.toLowerCase() === "stationery");
+        // Safe check for data type
+        const apiData = Array.isArray(data) ? data : [];
+        
+        // Filter DB items for this category (case-insensitive)
+        const dbItems = apiData.filter((p: any) => 
+          p.category?.toLowerCase() === "stationery" || 
+          p.category?.toLowerCase() === "stationery"
+        );
+        
+        // Smart Merge: Keep all legacy, add unique DB items
         const merged = [...legacyStationery];
         
         dbItems.forEach((db: any) => {
-          const existsIdx = merged.findIndex(m => m.id === db.id || m.title === db.name);
+          // Check if it already exists by name (to avoid duplicates if we add same name in DB)
+          const existsIdx = merged.findIndex(m => 
+            (db.id && m.id === db.id) || 
+            (db.name && m.title?.toLowerCase() === db.name.toLowerCase())
+          );
+          
           if (existsIdx > -1) {
-            merged[existsIdx] = { ...merged[existsIdx], ...db, title: db.name };
+            // Update existing with DB values (but keep legacy image if DB has none)
+            merged[existsIdx] = { 
+              ...merged[existsIdx], 
+              ...db, 
+              title: db.name, 
+              image: db.image || merged[existsIdx].image 
+            };
           } else {
-            merged.push({ ...db, title: db.name, id: db.id });
+            // Add as new
+            merged.push({ 
+              ...db, 
+              title: db.name, 
+              id: db.id || `db_${db.name}` 
+            });
           }
         });
+
         setProducts(merged);
         setLoading(false);
       })
