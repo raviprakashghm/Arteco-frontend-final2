@@ -82,16 +82,20 @@ const Signup = () => {
       );
 
       if (result.status !== 200) {
-        toast.error("Failed to send verification email. Please try again.");
+        toast.error(`EmailJS Error: ${result.text || "Unknown issue"}`);
+        setLoading(false);
         return;
       }
 
       setStep("otp");
       setResendCooldown(60);
-      toast.success(`OTP sent to ${email}! Check your inbox.`);
+      toast.success(`OTP sent to ${email}! Check your inbox (also spam folder).`);
     } catch (err: any) {
-      console.error("EmailJS error:", err);
-      toast.error("Error sending OTP. Please try again.");
+      console.error("EmailJS full error:", err);
+      // Display the actual error text from EmailJS for diagnosis
+      const msg = err?.text || err?.message || "Check your EmailJS Public Key & Whitelist.";
+      toast.error(`OTP Error: ${msg}`);
+      setLoading(false);
     } finally {
       setLoading(false);
     }
