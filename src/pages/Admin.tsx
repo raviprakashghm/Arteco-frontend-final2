@@ -196,11 +196,18 @@ export default function Admin() {
   const updateOrderStatus = async (id: string, status: string) => {
     try {
       const res = await fetch(`${API}/api/orders/${id}/status`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status })
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
       });
-      if (res.ok) { toast.success(`Order #${id} status updated to ${status}`); fetchOrders(); }
+      if (res.ok) {
+        toast.success(`Order #${id} status updated to ${status}`);
+        // Update local state immediately for instant feedback
+        setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
+      }
     } catch { 
-      toast.success(`Demo: Order updated to ${status}`);
+      toast.error("Network error: update failed.");
+    } finally {
       fetchOrders();
     }
   };
@@ -337,7 +344,7 @@ export default function Admin() {
             <TabBtn id="users" label="Users" icon={Users} active={activeTab === "users"} onClick={setActiveTab} />
             <TabBtn id="logs" label="Logs" icon={Activity} active={activeTab === "logs"} onClick={setActiveTab} />
             <TabBtn id="content" label="CMS" icon={Globe} active={activeTab === "content"} onClick={setActiveTab} />
-            <TabBtn id="deleted" label="Trash" icon={ShieldAlert} active={activeTab === "deleted"} onClick={setActiveTab} danger />
+            <TabBtn id="deleted" label="Deleted Accounts" icon={ShieldAlert} active={activeTab === "deleted"} onClick={setActiveTab} danger />
           </div>
 
           {/* Content */}
