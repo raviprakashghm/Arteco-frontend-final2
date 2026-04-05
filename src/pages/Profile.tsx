@@ -171,15 +171,44 @@ const Profile = () => {
     }
   };
 
-  const handleCancelOrder = (id: string) => {
-    if (window.confirm("Are you sure you want to cancel this order? This action cannot be undone.")) {
-      const existingOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
-      const updated = existingOrders.map((o: OrderRecord) => 
-        o.id === id ? { ...o, status: "Cancelled" } : o
-      );
-      localStorage.setItem(`orders_${user?.email}`, JSON.stringify(updated));
-      setOrders(updated);
-      toast.success("Order has been cancelled successfully!");
+  const handleCancelOrder = async (id: string, paymentMethod: string) => {
+    if (window.confirm("Are you sure you want to cancel this order? If paid online, a refund will be initiated automatically.")) {
+      try {
+        // 1. Trigger Refund API (Only for online payments)
+        if (paymentMethod !== "COD") {
+          toast.info("Initiating secure refund via Razorpay...");
+          const refundRes = await fetch(`${API_BASE_URL}/api/payment/refund`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: id, email: user?.email })
+          });
+          const refundData = await refundRes.json();
+          if (refundData.success) {
+            toast.success("Refund initiated! Amount will reflect in 5-7 days.");
+          }
+        }
+
+        // 2. Update Status locally & on server
+        const res = await fetch(`${API_BASE_URL}/api/orders/${id}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "Cancelled" })
+        });
+
+        if (res.ok) {
+          fetchOrders();
+          toast.success("Order cancelled successfully!");
+        }
+      } catch (err) {
+        // Fallback for demo/local storage
+        const existingOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
+        const updated = existingOrders.map((o: OrderRecord) => 
+          o.id === id ? { ...o, status: "Cancelled" } : o
+        );
+        localStorage.setItem(`orders_${user?.email}`, JSON.stringify(updated));
+        setOrders(updated);
+        toast.success("Order has been cancelled locally.");
+      }
     }
   };
 
@@ -271,12 +300,12 @@ const Profile = () => {
                               }`}>
                                 {order.status}
                               </span>
-                              {order.status === "Processing" && (
+                              {["Placed", "Processing"].includes(order.status) && (
                                 <button 
-                                  onClick={() => handleCancelOrder(order.id)}
+                                  onClick={() => handleCancelOrder(order.id, "UPI")} // Razorpay/UPI/Card are all non-COD
                                   className="text-[10px] font-bold tracking-wider uppercase bg-transparent text-muted-foreground hover:text-destructive border border-border hover:border-destructive/30 px-2 py-1 rounded transition-colors"
                                 >
-                                  Cancel
+                                  Cancel & Refund
                                 </button>
                               )}
                             </div>
