@@ -1,27 +1,27 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import StepIndicator from "@/components/StepIndicator";
 import PageTransition from "@/components/PageTransition";
 import AnimatedSection from "@/components/AnimatedSection";
 
-import tScaleImg from "@/assets/t-scale.jpg";
-import triangularScaleImg from "@/assets/triangular-scale.jpg";
-import setSquareImg from "@/assets/set-square.jpg";
-import microPensImg from "@/assets/micro-pens.jpg";
-import cuttingMatImg from "@/assets/cutting-mat.jpg";
-import thermocolImg from "@/assets/thermocol-sheet.jpg";
-
-const stationeryItems = [
-  { title: "T Scale", image: tScaleImg, href: "/shop/stationery/t-scale" },
-  { title: "Triangular Scale", image: triangularScaleImg, href: "/shop/stationery/triangular-scale" },
-  { title: "Set Square", image: setSquareImg, href: "/shop/stationery/set-square" },
-  { title: "Micro Pens", image: microPensImg, href: "/shop/stationery/micro-pens" },
-  { title: "Cutting Mat", image: cuttingMatImg, href: "/shop/stationery/cutting-mat" },
-  { title: "Thermocol Sheet", image: thermocolImg, href: "/shop/stationery/thermocol-sheet" },
-];
-
 const StationeryList = () => {
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+  useEffect(() => {
+    fetch(`${API}/api/admin/products`)
+      .then(res => res.json())
+      .then(data => {
+        const filtered = data.filter((p: any) => p.category?.toLowerCase() === "stationery");
+        setProducts(filtered);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
   return (
     <PageTransition>
       <div className="min-h-screen bg-background">
@@ -35,35 +35,41 @@ const StationeryList = () => {
             <span>&gt;</span>
             <Link to="/offerings" className="hover:text-primary transition-colors font-medium text-foreground">Offerings</Link>
             <span>&gt;</span>
-            <span>Software courses</span>
+            <span>Stationery</span>
           </div>
 
           <AnimatedSection>
             <h1 className="text-2xl font-bold mb-8">Commonly bought stationery</h1>
           </AnimatedSection>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            {stationeryItems.map((item, i) => (
-              <AnimatedSection key={item.title} delay={i * 0.08}>
-                <Link
-                  to={item.href}
-                  className="group rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all"
-                >
-                  <div className="overflow-hidden rounded-xl m-2 bg-secondary aspect-square flex items-center justify-center">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      loading="lazy"
-                      width={400}
-                      height={400}
-                      className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <p className="px-4 pb-4 pt-2 text-sm font-medium">{item.title}</p>
-                </Link>
-              </AnimatedSection>
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          ) : products.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground italic border border-dashed border-border rounded-2xl">
+              No stationery items available in store yet. Admin needs to add them.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+              {products.map((item, i) => (
+                <AnimatedSection key={item.id || i} delay={i * 0.08}>
+                  <Link
+                    to={`/shop/stationery/details/${item.id}`}
+                    className="group rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all"
+                  >
+                    <div className="overflow-hidden rounded-xl m-2 bg-secondary aspect-square flex items-center justify-center">
+                      <img
+                        src={item.image || "/placeholder.svg"}
+                        alt={item.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    <p className="px-4 pb-4 pt-2 text-sm font-medium text-center">{item.name}</p>
+                  </Link>
+                </AnimatedSection>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </PageTransition>

@@ -60,22 +60,24 @@ const Signup = () => {
       const res = await fetch(`${API}/api/otp/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })   // OTP sent to EMAIL — free!
+        body: JSON.stringify({ email })
       });
+      
       const data = await res.json();
-
       if (!res.ok) {
-        toast.error(data.error || "Failed to send OTP. Check backend.");
+        toast.error(data.error || "Failed to send OTP.");
+        setLoading(false); // Reset loading if it fails
         return;
       }
 
       setStep("otp");
       setResendCooldown(60);
-      toast.success(`OTP sent to ${email}! Check your inbox (also spam folder).`);
-    } catch (err: any) {
-      toast.error("Could not reach server. Make sure backend is running.");
+      toast.success(`OTP sent to ${email}!`);
+    } catch (err) {
+      toast.error("Could not reach server.");
+      setLoading(false); // Reset loading on error
     } finally {
-      setLoading(false);
+      setLoading(false); // Ensure loading is off
     }
   };
 

@@ -51,9 +51,9 @@ const AnimatedRoutes = () => {
         <Route path="/offerings/:slug" element={<OfferingDetail />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/shop/drawing-sheets" element={<SheetTypes />} />
-        <Route path="/shop/drawing-sheets/:sheetId" element={<SheetDetails />} />
+        <Route path="/shop/drawing-sheets/details/:sheetId" element={<SheetDetails />} />
         <Route path="/shop/stationery" element={<StationeryList />} />
-        <Route path="/shop/stationery/:itemId" element={<StationeryDetails />} />
+        <Route path="/shop/stationery/details/:itemId" element={<StationeryDetails />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-confirmation" element={<OrderConfirmation />} />
