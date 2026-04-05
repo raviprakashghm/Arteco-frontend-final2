@@ -573,6 +573,70 @@ export default function Admin() {
                       </button>
                     </div>
                   </div>
+
+                  {/* STATISTICS SECTION */}
+                  <div className="bg-[#0A0A0A] border border-zinc-800 rounded-3xl p-8 space-y-6 shadow-xl">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> Trusted By Stats
+                    </h3>
+                    <div className="grid md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Schools Tagline</label>
+                        <input className="auth-input bg-zinc-900 border-zinc-800 focus:border-primary text-xs" 
+                        value={siteContent["trust_1"] || ""} onChange={(e) => setSiteContent({...siteContent, trust_1: e.target.value})} placeholder="Trusted by Schools..."/>
+                        <button onClick={() => handleSaveContent("trust_1")} className="text-[9px] text-primary font-bold hover:underline">Update schools</button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Tools Tagline</label>
+                        <input className="auth-input bg-zinc-900 border-zinc-800 focus:border-primary text-xs" 
+                        value={siteContent["trust_2"] || ""} onChange={(e) => setSiteContent({...siteContent, trust_2: e.target.value})} placeholder="500+ Tools..."/>
+                        <button onClick={() => handleSaveContent("trust_2")} className="text-[9px] text-primary font-bold hover:underline">Update tools</button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Support Tagline</label>
+                        <input className="auth-input bg-zinc-900 border-zinc-800 focus:border-primary text-xs" 
+                        value={siteContent["trust_3"] || ""} onChange={(e) => setSiteContent({...siteContent, trust_3: e.target.value})} placeholder="24/7 Support..."/>
+                        <button onClick={() => handleSaveContent("trust_3")} className="text-[9px] text-primary font-bold hover:underline">Update support</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FOOTER & SOCIALS SECTION */}
+                  <div className="bg-[#0A0A0A] border border-zinc-800 rounded-3xl p-8 space-y-6 shadow-xl">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> Footer & Social Links
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-8">
+                       <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Footer Bio</label>
+                            <textarea className="auth-input bg-zinc-900 border-zinc-800 min-h-[100px] text-xs" 
+                            value={siteContent["footer_bio"] || ""} onChange={(e) => setSiteContent({...siteContent, footer_bio: e.target.value})} placeholder="Built by Arteco team..."/>
+                          </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                           <input className="auth-input bg-zinc-900 border-zinc-800 text-[10px] py-2" placeholder="Instagram URL" value={siteContent["instagram_url"] || ""} onChange={(e) => setSiteContent({...siteContent, instagram_url: e.target.value})}/>
+                           <button onClick={() => handleSaveContent("instagram_url")} className="p-2 bg-primary/10 rounded-lg"><Check size={14} className="text-primary"/></button>
+                        </div>
+                        <div className="flex gap-2">
+                           <input className="auth-input bg-zinc-900 border-zinc-800 text-[10px] py-2" placeholder="Twitter URL" value={siteContent["twitter_url"] || ""} onChange={(e) => setSiteContent({...siteContent, twitter_url: e.target.value})}/>
+                           <button onClick={() => handleSaveContent("twitter_url")} className="p-2 bg-primary/10 rounded-lg"><Check size={14} className="text-primary"/></button>
+                        </div>
+                        <div className="flex gap-2">
+                           <input className="auth-input bg-zinc-900 border-zinc-800 text-[10px] py-2" placeholder="LinkedIn URL" value={siteContent["linkedin_url"] || ""} onChange={(e) => setSiteContent({...siteContent, linkedin_url: e.target.value})}/>
+                           <button onClick={() => handleSaveContent("linkedin_url")} className="p-2 bg-primary/10 rounded-lg"><Check size={14} className="text-primary"/></button>
+                        </div>
+                        <div className="flex gap-2">
+                           <input className="auth-input bg-zinc-900 border-zinc-800 text-[10px] py-2" placeholder="Support Email" value={siteContent["contact_email"] || ""} onChange={(e) => setSiteContent({...siteContent, contact_email: e.target.value})}/>
+                           <button onClick={() => handleSaveContent("contact_email")} className="p-2 bg-primary/10 rounded-lg"><Check size={14} className="text-primary"/></button>
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => handleSaveContent("footer_bio")} className="bg-primary text-black font-extrabold px-6 py-2.5 rounded-xl hover:scale-105 transition-all text-[10px] shadow-lg shadow-primary/20">
+                      UPDATE FOOTER BIO
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
