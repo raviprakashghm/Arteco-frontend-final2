@@ -525,6 +525,58 @@ export default function Admin() {
               </div>
             )}
 
+            {activeTab === "content" && (
+              <div className="space-y-8">
+                <div className="flex items-center justify-between pb-4 border-b border-border/30">
+                  <h2 className="text-2xl font-bold tracking-tight">Content Management (CMS)</h2>
+                  <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-widest text-[10px]">
+                    <Globe size={14}/> Live Website Editor
+                  </div>
+                </div>
+
+                <div className="grid gap-8">
+                  {/* HERO SECTION */}
+                  <div className="bg-[#0A0A0A] border border-zinc-800 rounded-3xl p-8 space-y-6 shadow-xl">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> Hero Section
+                    </h3>
+                    <div className="grid gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Main Headline</label>
+                        <textarea className="auth-input bg-zinc-900 border-zinc-800 min-h-[100px] text-lg font-bold focus:border-primary" 
+                        value={siteContent["hero_title"] || ""} onChange={(e) => setSiteContent({...siteContent, hero_title: e.target.value})} placeholder="Main title..."/>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Sub Headline / Slogan</label>
+                        <textarea className="auth-input bg-zinc-900 border-zinc-800 focus:border-primary min-h-[80px]" 
+                        value={siteContent["hero_subtitle"] || ""} onChange={(e) => setSiteContent({...siteContent, hero_subtitle: e.target.value})} placeholder="Slogan..."/>
+                      </div>
+                      <button onClick={() => handleSaveContent("hero_title")} className="w-fit bg-primary text-black font-extrabold px-8 py-3 rounded-2xl hover:scale-105 active:scale-95 transition-all text-xs shadow-lg shadow-primary/20">
+                        SAVE HERO CHANGES
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ABOUT SECTION */}
+                  <div className="bg-[#0A0A0A] border border-zinc-800 rounded-3xl p-8 space-y-6 shadow-xl">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> About Section
+                    </h3>
+                    <div className="grid gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">About ARTECO Story</label>
+                        <textarea className="auth-input bg-zinc-900 border-zinc-800 min-h-[180px] leading-relaxed focus:border-primary" 
+                        value={siteContent["about_text"] || ""} onChange={(e) => setSiteContent({...siteContent, about_text: e.target.value})} placeholder="Full story bio..."/>
+                      </div>
+                      <button onClick={() => handleSaveContent("about_text")} className="w-fit bg-primary text-black font-extrabold px-8 py-3 rounded-2xl hover:scale-105 active:scale-95 transition-all text-xs shadow-lg shadow-primary/20">
+                        SAVE ABOUT CHANGES
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ─── DELETED ACCOUNTS ─── */}
             {activeTab === "deleted" && (
               <div className="space-y-6">
