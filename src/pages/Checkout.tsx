@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import emailjs from '@emailjs/browser';
 
 const DELIVERY_FEE = 8;
 type PaymentMethod = "UPI" | "CARD" | "COD";
@@ -174,21 +175,55 @@ const Checkout = () => {
       paymentMethod
     };
 
+    // 1. Send Grand Confirmation Email via EmailJS
+    const orderItemsText = items.map(it => `${it.name} (x${it.quantity})`).join(", ");
+    const emailParams = {
+      to_name: user?.name || "Valued Customer",
+      to_email: user?.email,
+      order_id: orderId,
+      total_amount: orderTotal.toFixed(2),
+      order_details: orderItemsText,
+      reply_to: "arteco@operations.com"
+    };
+
+    try {
+      await emailjs.send(
+        "service_fgme6zs", 
+        "template_f1vshdd", // New Grand Confirmation Template
+        emailParams,
+        "rwIUiOUbWpprqVmoJ"
+      );
+      toast.success("Confirmation email sent successfully!");
+    } catch (err) {
+      console.error("EmailJS Order Error:", err);
+    }
+
     // Save to Local Storage mockup DB
     const existingOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
     localStorage.setItem(`orders_${user?.email}`, JSON.stringify([newOrder, ...existingOrders]));
 
-    // Generate PDF Bill Local Demo
+    // 2. Generate Grand PDF Bill
     const doc = new jsPDF();
-    doc.setFontSize(22);
-    doc.text("ARTECO", 14, 20);
-    doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.text("A Hub For All Architectural Needs", 14, 28);
     
-    doc.setTextColor(0);
-    doc.setFontSize(14);
-    doc.text("INVOICE / BILL", 14, 40);
+    // Add Arteco Branding (Grand Style)
+    doc.setFillColor(28, 28, 30); // Dark Background Header
+    doc.rect(0, 0, 210, 45, 'F');
+    
+    doc.setTextColor(255, 204, 0); // Arteco Gold
+    doc.setFontSize(28);
+    doc.setFont("helvetica", "bold");
+    doc.text("ARTECO", 14, 25);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(200, 200, 200);
+    doc.text("A HUB FOR ALL ARCHITECTURAL NEEDS", 14, 33);
+    doc.text("Excellence, Delivered.", 14, 38);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("OFFICIAL RECEIPT", 14, 60);
     
     doc.setFontSize(10);
     doc.text(`Order ID: ${orderId}`, 14, 50);
