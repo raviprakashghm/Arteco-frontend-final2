@@ -99,7 +99,7 @@ const Profile = () => {
   };
 
   const getOrderStatusProgress = (status: string) => {
-    const statuses = ['Placed', 'Processing', 'Shipped', 'Delivered'];
+    const statuses = ['Placed', 'Processing', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered'];
     const idx = statuses.indexOf(status);
     return idx === -1 ? 0 : idx;
   };
@@ -289,18 +289,20 @@ const Profile = () => {
                               <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-secondary rounded-full overflow-hidden">
                                 <div 
                                   className="h-full bg-primary transition-all duration-1000" 
-                                  style={{ width: `${(getOrderStatusProgress(order.status) / 3) * 100}%` }}
+                                  style={{ width: `${(getOrderStatusProgress(order.status) / 5) * 100}%` }}
                                 />
                               </div>
-                              <div className="relative flex justify-between z-10 w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                {['Placed', 'Processing', 'Shipped', 'Delivered'].map((step, idx) => {
+                              <div className="relative flex justify-between z-10 w-full text-[10px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground gap-1">
+                                {['Placed', 'Processing', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered'].map((step, idx) => {
                                   const isActive = getOrderStatusProgress(order.status) >= idx;
+                                  const totalSteps = 5; // 0 to 5
                                   return (
-                                    <div key={idx} className="flex flex-col items-center gap-2">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
+                                    <div key={idx} className="flex flex-col items-center gap-2 flex-1 text-center min-w-0">
+                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors shrink-0 ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
                                         {isActive ? '✓' : idx + 1}
                                       </div>
-                                      <span className={isActive ? 'text-primary font-bold' : ''}>{step}</span>
+                                      <span className={`hidden md:block ${isActive ? 'text-primary font-bold' : ''}`}>{step}</span>
+                                      <span className={`md:hidden ${isActive ? 'text-primary font-boldScale' : ''}`}>{step.split(' ')[0]}</span>
                                     </div>
                                   )
                                 })}
