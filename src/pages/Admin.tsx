@@ -194,7 +194,10 @@ export default function Admin() {
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
-    // 💡 FORCE PRODUCTION SYNC
+    // 🍱 INSTANT VISUAL FEEDBACK: Force the dropdown to update immediately!
+    setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
+    
+    // 💡 FORCE PRODUCTION DB SYNC
     const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
     
     try {
@@ -207,8 +210,6 @@ export default function Admin() {
       
       if (res.ok) {
         toast.success(`Order #${id} is now ${status.toUpperCase()}!`);
-        // Update local state to show the new selection immediately
-        setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
       } else {
         // Retry with PUT if server prefers it
         await fetch(`${API_URL}/api/orders/${id}/status`, {
@@ -219,14 +220,13 @@ export default function Admin() {
         toast.success(`Success: ${status} updated.`);
       }
     } catch (err) {
-      // EMERGENCY: If server is down, store it in user's global session as priority
-      console.error("Status Sync Error: Falling back to local broadcast.");
-      const updated = orders.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o);
-      setOrders(updated);
+      console.error("Sync Error:", err);
+      // Fallback: Backup to session in case of internet drop
       localStorage.setItem(`broadcast_status_${id}`, status);
       toast.error("Database connection weak. Retrying...");
     } finally {
-      fetchOrders();
+      // Re-fetch everything to ensure total sync with DB
+      setTimeout(fetchOrders, 1000);
     }
   };
 
