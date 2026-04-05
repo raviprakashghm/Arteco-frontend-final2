@@ -11,15 +11,32 @@ const StationeryList = () => {
   const [loading, setLoading] = useState(true);
   const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+  const legacyStationery = [
+    { id: "t-scale", name: "T Scale", price: 350, image: "/placeholder.svg" },
+    { id: "triangular-scale", name: "Triangular Scale", price: 280, image: "/placeholder.svg" },
+    { id: "set-square", name: "Set Square", price: 320, image: "/placeholder.svg" },
+    { id: "micro-pens", name: "Micro Pens", price: 224, image: "/placeholder.svg" },
+    { id: "cutting-mat", name: "Cutting Mat", price: 450, image: "/placeholder.svg" },
+    { id: "thermocol-sheet", name: "Thermocol Sheet", price: 180, image: "/placeholder.svg" },
+  ];
+
   useEffect(() => {
     fetch(`${API}/api/admin/products`)
       .then(res => res.json())
       .then(data => {
-        const filtered = data.filter((p: any) => p.category?.toLowerCase() === "stationery");
-        setProducts(filtered);
+        const dbItems = data.filter((p: any) => p.category?.toLowerCase() === "stationery");
+        const merged = [...legacyStationery];
+        // Ensure no duplicates by matching names or IDs
+        dbItems.forEach((ps: any) => {
+          if (!merged.find(m => m.id === ps.id || m.name === ps.name)) merged.push(ps);
+        });
+        setProducts(merged);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setProducts(legacyStationery);
+        setLoading(false);
+      });
   }, []);
 
   return (

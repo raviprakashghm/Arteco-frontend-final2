@@ -11,18 +11,32 @@ const SheetTypes = () => {
   const [loading, setLoading] = useState(true);
   const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+  const legacySheets = [
+    { id: "cartridge", name: "Cartridge Sheet", image: "/placeholder.svg", category: "Drawing sheets", price: 24 },
+    { id: "butter", name: "Butter Paper", image: "/placeholder.svg", category: "Drawing sheets", price: 18 },
+    { id: "mill-board", name: "Mill Board", image: "/placeholder.svg", category: "Drawing sheets", price: 45 }
+  ];
+
   useEffect(() => {
     fetch(`${API}/api/admin/products`)
       .then(res => res.json())
       .then(data => {
-        const filtered = data.filter((p: any) => 
+        const dbSheets = data.filter((p: any) => 
           p.category?.toLowerCase().includes("sheet") || 
           p.category?.toLowerCase().includes("drawing")
         );
-        setProducts(filtered);
+        // Merge legacy with DB (avoid duplicates by ID)
+        const merged = [...legacySheets];
+        dbSheets.forEach((ps: any) => {
+          if (!merged.find(m => m.id === ps.id)) merged.push(ps);
+        });
+        setProducts(merged);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setProducts(legacySheets);
+        setLoading(false);
+      });
   }, []);
 
   return (
