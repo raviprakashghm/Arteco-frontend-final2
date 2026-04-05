@@ -293,21 +293,33 @@ const Profile = () => {
                           </div>
                           <div className="flex-1 min-w-[120px]">
                             <p className="text-xs uppercase text-muted-foreground tracking-wider font-semibold">Status</p>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                            <div className="flex flex-col gap-2 mt-1">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border w-fit ${
                                 order.status === 'Cancelled' ? 'bg-destructive/10 text-destructive border-destructive/20' 
-                                : 'bg-green-500/10 text-green-500 border-green-500/20'
+                                : order.status === 'Delivered' ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                                : order.status === 'Refunded' ? 'bg-blue-500/10 text-blue-400 border-blue-400/20'
+                                : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                               }`}>
                                 {order.status}
                               </span>
-                              {["Placed", "Processing"].includes(order.status) && (
-                                <button 
-                                  onClick={() => handleCancelOrder(order.id, "UPI")} // Razorpay/UPI/Card are all non-COD
-                                  className="text-[10px] font-bold tracking-wider uppercase bg-transparent text-muted-foreground hover:text-destructive border border-border hover:border-destructive/30 px-2 py-1 rounded transition-colors"
-                                >
-                                  Cancel & Refund
-                                </button>
-                              )}
+                              
+                              <div className="flex flex-wrap gap-2">
+                                {["Placed", "Processing"].includes(order.status) && (
+                                  <button onClick={() => handleCancelOrder(order.id, "UPI")} className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground hover:text-destructive border border-border hover:border-destructive/30 px-2 py-1 rounded transition-colors">
+                                    Cancel & Refund
+                                  </button>
+                                )}
+                                
+                                {order.status === "Delivered" && (
+                                  <button onClick={() => {
+                                    if(window.confirm("Arteco Policy: Returns are accepted within 7 days if tools are defective or sheets are damaged. Request Return?")) {
+                                      toast.info("Return request sent! Our team will review the damage within 24 hours.");
+                                    }
+                                  }} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
+                                    Request Return
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>

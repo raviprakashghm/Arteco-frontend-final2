@@ -272,7 +272,7 @@ export default function Admin() {
   );
 
   const totalRevenue = orders.filter(o => o.status === "Delivered").reduce((s, o) => s + (o.amount || o.total || 0), 0);
-  const activeOrders = orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length;
+  const activeOrders = orders.filter(o => !["Delivered", "Cancelled", "Refunded"].includes(o.status)).length;
 
   if (user?.email !== "admin@arteco.com") {
     return (
@@ -376,7 +376,7 @@ export default function Admin() {
                     <div className="flex flex-col gap-2 min-w-[220px]">
                       <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Update Delivery Status</label>
                       <select className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all ${o.status === "Cancelled" ? "border-red-500 text-red-400" : "border-zinc-800 focus:border-primary"}`} value={o.status || "Processing"} onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}>
-                        {["Placed", "Processing", "Dispatched", "Shipped", "Out for Delivery", "Delivered", "Cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                        {["Placed", "Processing", "Dispatched", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Refunded"].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                   </div>
