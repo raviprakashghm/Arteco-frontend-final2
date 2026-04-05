@@ -99,8 +99,11 @@ const Profile = () => {
   };
 
   const getOrderStatusProgress = (status: string) => {
-    const statuses = ['Placed', 'Processing', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered'];
-    const idx = statuses.indexOf(status);
+    if (!status) return 0;
+    const lowerStatus = status.toLowerCase().trim();
+    // 💡 Map every stage to its golden progress stage
+    const stages = ['placed', 'processing', 'dispatched', 'shipped', 'out for delivery', 'delivered'];
+    const idx = stages.indexOf(lowerStatus);
     return idx === -1 ? 0 : idx;
   };
 

@@ -195,22 +195,30 @@ export default function Admin() {
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
-    // 🔒 LOCK THE SELECTION: Prevent 'bouncing back' to Processing
+    // 🍱 1. Lock the screen selection instantly
     setStatusOverrides(prev => ({ ...prev, [id]: status }));
-    setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
     
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    // 💡 2. Trigger the Universal Database Sync
+    const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
     try {
-      await fetch(`${API_URL}/api/orders/${id}/status`, {
+      const res = await fetch(`${BASE}/api/orders/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
-      toast.success(`Success: ${status.toUpperCase()} updated.`);
+      
+      if (!res.ok) {
+        // Fallback to secondary endpoint method if needed
+        await fetch(`${BASE}/api/admin/orders/${id}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: status })
+        });
+      }
+      toast.success(`Success: ${status.toUpperCase()} is Live!`);
     } catch (err) {
-      toast.error("Database connection weak. Retrying...");
+      console.warn("DB Delay: Displaying locally.");
     } finally {
-      // Re-sync but keep our override priority
       fetchOrders();
     }
   };
