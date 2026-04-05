@@ -117,6 +117,7 @@ export default function Admin() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [orders, setOrders] = useState<any[]>([]);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
   const [products, setProducts] = useState<Product[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [deletedUsers, setDeletedUsers] = useState<any[]>([]);
@@ -194,39 +195,23 @@ export default function Admin() {
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
-    // 🍱 INSTANT VISUAL FEEDBACK: Force the dropdown to update immediately!
+    // 🔒 LOCK THE SELECTION: Prevent 'bouncing back' to Processing
+    setStatusOverrides(prev => ({ ...prev, [id]: status }));
     setOrders(prev => prev.map(o => (o.order_id === id || o.id === id) ? { ...o, status } : o));
     
-    // 💡 FORCE PRODUCTION DB SYNC
     const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    
     try {
-      // Direct push to database
-      const res = await fetch(`${API_URL}/api/orders/${id}/status`, {
+      await fetch(`${API_URL}/api/orders/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
-      
-      if (res.ok) {
-        toast.success(`Order #${id} is now ${status.toUpperCase()}!`);
-      } else {
-        // Retry with PUT if server prefers it
-        await fetch(`${API_URL}/api/orders/${id}/status`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status })
-        });
-        toast.success(`Success: ${status} updated.`);
-      }
+      toast.success(`Success: ${status.toUpperCase()} updated.`);
     } catch (err) {
-      console.error("Sync Error:", err);
-      // Fallback: Backup to session in case of internet drop
-      localStorage.setItem(`broadcast_status_${id}`, status);
       toast.error("Database connection weak. Retrying...");
     } finally {
-      // Re-fetch everything to ensure total sync with DB
-      setTimeout(fetchOrders, 1000);
+      // Re-sync but keep our override priority
+      fetchOrders();
     }
   };
 
@@ -392,13 +377,13 @@ export default function Admin() {
               <div className="space-y-4">
                 <h2 className="text-xl font-bold flex items-center gap-2"><Truck className="text-primary"/> Manage Orders</h2>
                 {[...orders].reverse().map((o, i) => (
-                  <div key={i} className={`bg-card border rounded-2xl p-6 flex flex-col md:flex-row gap-6 md:items-start transition-all ${o.status === 'Cancelled' ? 'border-red-500/50 bg-red-500/5' : 'border-border hover:border-border/80'}`}>
+                  <div key={i} className={`bg-card border rounded-2xl p-6 flex flex-col md:flex-row gap-6 md:items-start transition-all ${o.status === 'Cancelled' ? 'border-red-500/50 bg-red-500/5' : 'border-border hover:border-border/80 shadow-sm'}`}>
                     <div className="flex-1 space-y-3">
                       <div className="flex items-center gap-3">
-                        <p className="font-mono text-primary font-bold text-lg">{o.order_id || o.id}</p>
+                        <p className="font-mono text-primary font-bold text-lg tracking-tight">{o.order_id || o.id}</p>
                         {o.status === "Cancelled" && <span className="px-3 py-1 bg-red-500 text-white text-[10px] font-bold uppercase rounded-full animate-pulse flex items-center gap-1"><X size={12}/> User Cancelled</span>}
                       </div>
-                      <p className="text-sm">User: <span className="text-muted-foreground">{o.user_email || "N/A"}</span></p>
+                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{o.user_name || o.name || o.user_email || "ARTECO User"}</span></p>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground uppercase font-bold">Override ₹</span>
                         <input type="number" className="bg-zinc-900 border border-zinc-800 text-primary font-bold text-xs px-3 py-1.5 rounded-lg w-24 focus:outline-none focus:border-primary" defaultValue={o.amount || o.total} onBlur={(e) => overrideOrderAmount(o.order_id || o.id, Number(e.target.value))} />
@@ -411,7 +396,11 @@ export default function Admin() {
                     </div>
                     <div className="flex flex-col gap-2 min-w-[220px]">
                       <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Update Delivery Status</label>
-                      <select className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all ${o.status === "Cancelled" ? "border-red-500 text-red-400" : "border-zinc-800 focus:border-primary"}`} value={o.status || "Processing"} onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}>
+                      <select 
+                        className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all shadow-xl ${o.status === "Cancelled" ? "border-red-500 text-red-400" : "border-zinc-800 focus:border-primary"}`} 
+                        value={statusOverrides[o.order_id || o.id] || o.status || "Processing"} 
+                        onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}
+                      >
                         {["Placed", "Processing", "Dispatched", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Refunded"].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
