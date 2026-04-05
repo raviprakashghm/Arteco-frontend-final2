@@ -51,9 +51,9 @@ const Profile = () => {
   useEffect(() => {
     if (user?.email) {
       fetchOrders();
-      // Poll every 30 seconds to reflect admin status changes
-      const interval = setInterval(fetchOrders, 30000);
-      return () => clearInterval(interval);
+      // THE "INSTANT SYNC": Poll status every 4 seconds for a fast, responsive experience
+      const statusPoll = setInterval(fetchOrders, 4000);
+      return () => clearInterval(statusPoll);
     }
   }, [user]);
 
