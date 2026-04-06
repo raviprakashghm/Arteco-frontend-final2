@@ -6,7 +6,7 @@ import PageTransition from "@/components/PageTransition";
 import AnimatedSection from "@/components/AnimatedSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { User, LogOut, Package, Settings, Edit3, Mail, Trash2 } from "lucide-react";
+import { User, LogOut, Package, Settings, Edit3, Mail, Trash2, AlertCircle, Check } from "lucide-react";
 import { updateEmail, deleteUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -91,6 +91,9 @@ const Profile = () => {
                 const otpData = await otpRes.json();
                 if (otpData.otp) deliveryOtpText = otpData.otp;
               } catch (e) {}
+              if (!deliveryOtpText && typeof window !== "undefined") {
+                deliveryOtpText = localStorage.getItem(`delivery_otp_${o.order_id || o.id}`);
+              }
             }
 
             return {
@@ -114,6 +117,7 @@ const Profile = () => {
           const formattedFallback = savedOrders.map((o: any) => ({
              ...o,
              status: adminLocks[o.id] || o.status,
+             otp: adminLocks[o.id] === 'Out for Delivery' || o.status === 'Out for Delivery' ? localStorage.getItem(`delivery_otp_${o.id}`) : o.otp,
              payment_method: o.payment_method || o.paymentMethod || 'Online'
           }));
           setOrders(formattedFallback);
@@ -125,6 +129,7 @@ const Profile = () => {
       const formattedFallback = savedOrders.map((o: any) => ({
          ...o,
          status: adminLocks[o.id] || o.status,
+         otp: adminLocks[o.id] === 'Out for Delivery' || o.status === 'Out for Delivery' ? localStorage.getItem(`delivery_otp_${o.id}`) : o.otp,
          payment_method: o.payment_method || o.paymentMethod || 'Online'
       }));
       setOrders(formattedFallback);
@@ -388,39 +393,44 @@ const Profile = () => {
                           </div>
                         </div>
                         <div className="p-6">
-                          {/* Flipkart like Order Tracking UI */}
-                          {order.status !== 'Cancelled' && (
-                            <div className="mb-8 mt-4 relative">
-                              <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-secondary rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-primary transition-all duration-1000" 
-                                  style={{ width: `${(getOrderStatusProgress(order.status) / 5) * 100}%` }}
-                                />
-                              </div>
-                              <div className="relative flex justify-between z-10 w-full text-[10px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground gap-1">
-                                {['Placed', 'Processing', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered'].map((step, idx) => {
-                                  const isActive = getOrderStatusProgress(order.status) >= idx;
-                                  const totalSteps = 5; // 0 to 5
-                                  return (
-                                    <div key={idx} className="flex flex-col items-center gap-2 flex-1 text-center min-w-0 relative">
-                                      <div className={`w-6 h-6 z-10 rounded-full flex items-center justify-center transition-colors shrink-0 ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
-                                        {isActive ? '✓' : idx + 1}
+                            
+                            {order.status === 'Cancelled' ? (
+                                <div className="py-8 text-center bg-destructive/10 border border-destructive/20 rounded-xl mb-6">
+                                  <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-2 opacity-80 animate-pulse" />
+                                  <p className="text-destructive font-bold text-lg uppercase tracking-widest">Order Cancelled</p>
+                                  <p className="text-muted-foreground text-sm mt-1">This order has been terminated.</p>
+                                </div>
+                            ) : (
+                              <div className="mb-8 mt-4 relative">
+                                <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-secondary rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-primary transition-all duration-1000" 
+                                    style={{ width: `${(getOrderStatusProgress(order.status) / 5) * 100}%` }}
+                                  />
+                                </div>
+                                <div className="relative flex justify-between z-10 w-full text-[10px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground gap-1">
+                                  {['Placed', 'Processing', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered'].map((step, idx) => {
+                                    const isActive = getOrderStatusProgress(order.status) >= idx;
+                                    return (
+                                      <div key={idx} className="flex flex-col items-center gap-2 flex-1 text-center min-w-0 relative">
+                                        <div className={`w-6 h-6 z-10 rounded-full flex items-center justify-center transition-colors shrink-0 ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
+                                          {isActive ? '✓' : idx + 1}
+                                        </div>
+                                        <span className={`hidden md:block ${isActive ? 'text-primary font-bold' : ''}`}>{step}</span>
+                                        <span className={`md:hidden ${isActive ? 'text-primary font-bold' : ''}`}>{step.split(' ')[0]}</span>
+                                        
+                                        {/* OTP Display when out for delivery */}
+                                        {step === 'Out for Delivery' && isActive && order.otp && (
+                                            <div className="absolute top-10 whitespace-nowrap bg-zinc-900 border border-primary/50 text-white text-xs px-2 py-1 rounded-md mt-2 shadow-xl animate-pulse z-20">
+                                              OTP: <span className="font-bold text-primary tracking-widest text-sm">{order.otp}</span>
+                                            </div>
+                                        )}
                                       </div>
-                                      <span className={`hidden md:block ${isActive ? 'text-primary font-bold' : ''}`}>{step}</span>
-                                      <span className={`md:hidden ${isActive ? 'text-primary font-bold' : ''}`}>{step.split(' ')[0]}</span>
-                                      
-                                      {/* OTP Display when out for delivery */}
-                                      {step === 'OUT FOR DELIVERY' && isActive && order.otp && (
-                                          <div className="absolute top-10 whitespace-nowrap bg-zinc-900 border border-primary/50 text-white text-xs px-2 py-1 rounded-md mt-2 shadow-xl animate-pulse z-20">
-                                            OTP: <span className="font-bold text-primary tracking-widest text-sm">{order.otp}</span>
-                                          </div>
-                                      )}
-                                    </div>
-                                  )
-                                })}
+                                    )
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
 
                           <div className="flex flex-col md:flex-row gap-6">

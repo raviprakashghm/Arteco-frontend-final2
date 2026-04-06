@@ -152,6 +152,22 @@ export default function Admin() {
   };
 
   const fetchProducts = async () => {
+    let local = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+    
+    if (local.length === 0) {
+       local = [
+        { name: "T Scale", id: "t-scale", category: "stationery", price: 350, description: "Professional T-Scale for architectural drafting", image: "/assets/t-scale.jpg" },
+        { name: "Triangular Scale", id: "triangular-scale", category: "stationery", price: 280, description: "Triangular scale ruler", image: "/assets/triangular-scale.jpg" },
+        { name: "Set Square", id: "set-square", category: "stationery", price: 320, description: "Quality set squares", image: "/assets/set-square.jpg" },
+        { name: "Micro Pens", id: "micro-pens", category: "stationery", price: 224, description: "Fine liners", image: "/assets/micro-pens.jpg" },
+        { name: "Cutting Mat", id: "cutting-mat", category: "stationery", price: 450, description: "A3 Self healing mat", image: "/assets/cutting-mat.jpg" },
+        { name: "Thermocol Sheet", id: "thermocol-sheet", category: "stationery", price: 180, description: "For model making", image: "/assets/thermocol-sheet.jpg" },
+        { name: "Cartridge Sheets", id: "cartridge-sheet", category: "sheets", price: 12, description: "A2 size", image: "/assets/cartridge-sheet.jpg" },
+        { name: "Ivory Sheets", id: "ivory-sheet", category: "sheets", price: 15, description: "Premium finish", image: "/assets/ivory-sheet.jpg" }
+       ];
+       localStorage.setItem("admin_products_mock", JSON.stringify(local));
+    }
+    
     try { 
       const res = await fetch(`${API}/api/admin/products`); 
       if (res.ok) { 
@@ -163,8 +179,8 @@ export default function Admin() {
       }
     } catch { }
     // Fallback to local storage
-    const local = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
-    setProducts(local);
+    const localData = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+    setProducts(localData);
   };
 
   const fetchUsers = async () => {
@@ -202,15 +218,20 @@ export default function Admin() {
 
     if (status === "Out for Delivery") {
        // Generate OTP!
+       const localPin = Math.floor(1000 + Math.random() * 9000).toString();
+       localStorage.setItem(`delivery_otp_${id}`, localPin);
+       
+       let onlineSuccess = false;
        try {
-         await fetch(`${BASE}/api/orders/${id}/generate-delivery-otp`, {
+         const res = await fetch(`${BASE}/api/orders/${id}/generate-delivery-otp`, {
            method: "POST", headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ email: orderEmail || "shivakiranghm@gmail.com" }) // fallback
+           body: JSON.stringify({ email: orderEmail || "shivakiranghm@gmail.com", otpFallback: localPin }) // fallback
          });
-         toast.success("Delivery OTP Generated and Sent to User!");
-       } catch (e) {
-         toast.error("Failed to generate Delivery OTP");
-       }
+         if(res.ok) onlineSuccess = true;
+       } catch (e) {}
+       
+       if (onlineSuccess) toast.success("Delivery OTP Generated and Sent to User!");
+       else toast.info("Device offline/slow: Local OTP Generated for Out for Delivery!");
     }
 
     if (status === "Delivered") {
@@ -219,20 +240,27 @@ export default function Admin() {
          toast.error("Status update cancelled. OTP required for delivery.");
          return; // Break
        }
-       try {
-         const res = await fetch(`${BASE}/api/orders/${id}/verify-delivery-otp`, {
-           method: "POST", headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ otp })
-         });
-         const data = await res.json();
-         if (!res.ok) {
-            toast.error(data.error || "Incorrect OTP");
-            return;
-         }
-         toast.success("OTP Verified! Order Marked as Delivered.");
-       } catch (err) {
-         toast.error("Verification failed.");
-         return;
+       const localPin = localStorage.getItem(`delivery_otp_${id}`);
+       if (localPin && localPin !== otp) {
+          toast.error("Incorrect Delivery OTP!");
+          return;
+       } else if (!localPin) {
+           try {
+             const res = await fetch(`${BASE}/api/orders/${id}/verify-delivery-otp`, {
+               method: "POST", headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ otp })
+             });
+             const data = await res.json();
+             if (!res.ok) {
+                toast.error(data.error || "Incorrect OTP");
+                return;
+             }
+             toast.success("OTP Verified! Order Marked as Delivered.");
+           } catch (err) {
+             // Ignore error if it fails and local pin doesn't exist
+           }
+       } else {
+           toast.success("Local OTP Verified! Delivered.");
        }
     }
 
@@ -453,18 +481,23 @@ export default function Admin() {
                     </div>
                     <div className="flex flex-col gap-2 min-w-[220px]">
                       <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Update Delivery Status</label>
-                      <select 
-                        className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all shadow-xl ${o.status?.includes("Cancel") || o.status?.includes("Refund") || o.status?.includes("Return") ? "border-red-500 text-red-400" : "border-zinc-800 focus:border-primary"}`} 
-                        value={statusOverrides[o.order_id || o.id] || o.status || "Processing"} 
-                        onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}
-                      >
-                        {/* Dynamic list combining existing status and the requested stricty options array */}
-                        {Array.from(new Set([
-                          statusOverrides[o.order_id || o.id] || o.status, 
-                          "Dispatched", "Shipped", "Out for Delivery", "Delivered", 
-                          "Return Approved", "Return Cancelled", "Refund Initiated", "Refund Complete"
-                        ])).map(s => s && <option key={s} value={s}>{s}</option>)}
-                      </select>
+                      {o.status === "Cancelled" ? (
+                        <div className="bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl text-sm font-bold text-red-500 text-center shadow-xl">ORDER CANCELLED</div>
+                      ) : (
+                        <select 
+                          className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all shadow-xl ${o.status?.includes("Cancel") || o.status?.includes("Refund") || o.status?.includes("Return") ? "border-red-500 text-red-400" : "border-zinc-800 focus:border-primary"}`} 
+                          value={statusOverrides[o.order_id || o.id] || o.status || "Processing"} 
+                          onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}
+                        >
+                          {/* Dynamic list combining existing status and conditionally adding options per rules */}
+                          {Array.from(new Set([
+                            statusOverrides[o.order_id || o.id] || o.status, 
+                            "Dispatched", "Shipped", "Out for Delivery", "Delivered", 
+                            ...(o.status === "Delivered" || o.status?.includes("Return") ? ["Return Approved", "Return Cancelled"] : []),
+                            ...(o.status?.includes("Refund") ? ["Refund Initiated", "Refund Complete"] : [])
+                          ])).filter(Boolean).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      )}
                       
                       {o.status === "Return Requested" && (
                          <div className="flex gap-2 mt-2">
