@@ -29,9 +29,6 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "orders");
   const [orders, setOrders] = useState<OrderRecord[]>([]);
 
-  const [whatsappEnabled, setWhatsappEnabled] = useState(() =>
-    localStorage.getItem("arteco_whatsapp_notif") !== "false"
-  );
   const [emailEnabled, setEmailEnabled] = useState(() =>
     localStorage.getItem("arteco_email_notif") !== "false"
   );
@@ -42,30 +39,34 @@ const Profile = () => {
   const [feedbackOrderId, setFeedbackOrderId] = useState<string | null>(null);
   const [feedbackForm, setFeedbackForm] = useState({ stars: 5, review: "" });
 
-  const submitFeedback = () => {
+  const submitFeedback = async () => {
     if(!feedbackOrderId) return;
     const currentOrder = orders.find(o => o.id === feedbackOrderId);
     if(!currentOrder) return;
     
-    let existing = JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]");
     const userName = user?.name || user?.email;
-    const targetIdx = existing.findIndex((f: any) => f.orderId === currentOrder.id && f.userName === userName);
-    
     const payload = {
-      id: targetIdx >= 0 ? existing[targetIdx].id : `FB${Date.now()}`,
-      orderId: currentOrder.id,
-      userName: userName,
-      productNames: currentOrder.items.map((i: any) => `${i.name} (x${i.quantity})`).join(", "),
+      order_id: currentOrder.id,
+      user_name: userName,
+      product_names: currentOrder.items.map((i: any) => `${i.name} (x${i.quantity})`).join(", "),
       stars: feedbackForm.stars,
-      reviewText: feedbackForm.review,
+      review_text: feedbackForm.review,
       date: new Date().toISOString()
     };
     
-    if (targetIdx >= 0) {
-      existing[targetIdx] = payload;
-    } else {
-      existing = [payload, ...existing];
-    }
+    try {
+      await fetch(`${API_BASE_URL}/api/feedbacks`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch(e) {}
+    
+    // Also keep local just for immediate UI feel
+    let existing = JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]");
+    const targetIdx = existing.findIndex((f: any) => f.orderId === currentOrder.id && f.userName === userName);
+    const localPayload = { id: `FB${Date.now()}`, orderId: currentOrder.id, userName, stars: feedbackForm.stars, reviewText: feedbackForm.review, productNames: payload.product_names, date: payload.date };
+    if (targetIdx >= 0) existing[targetIdx] = localPayload;
+    else existing = [localPayload, ...existing];
     localStorage.setItem("admin_feedbacks_mock", JSON.stringify(existing));
     
     toast.success("Feedback submitted! Thank you for reviewing your purchase.");
@@ -92,12 +93,6 @@ const Profile = () => {
       return () => clearInterval(statusPoll);
     }
   }, [user]);
-
-  const handleToggleWhatsapp = (val: boolean) => {
-    setWhatsappEnabled(val);
-    localStorage.setItem("arteco_whatsapp_notif", String(val));
-    toast.success(val ? "WhatsApp alerts enabled" : "WhatsApp alerts disabled");
-  };
 
   const handleToggleEmail = (val: boolean) => {
     setEmailEnabled(val);
@@ -693,16 +688,6 @@ const Profile = () => {
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" className="sr-only peer" checked={emailEnabled} onChange={(e) => handleToggleEmail(e.target.checked)} />
-                          <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                      </div>
-                      <div className="flex items-center justify-between border-t border-border/40 pt-4">
-                        <div>
-                          <p className="font-semibold text-sm">WhatsApp Alerts</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Receive shipment tracking via WhatsApp message</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" checked={whatsappEnabled} onChange={(e) => handleToggleWhatsapp(e.target.checked)} />
                           <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                         </label>
                       </div>

@@ -44,7 +44,7 @@ const OrderConfirmation = () => {
                 <div className="bg-[#1C1C1E] rounded-2xl p-6">
                   <p className="text-xs text-gray-400 mb-3 font-medium">Confirmation</p>
                   <p className="text-gray-200 text-sm leading-relaxed pr-8">
-                    Receipt has been shared to your WhatsApp
+                    Receipt has been shared to your registered Email
                   </p>
                 </div>
               </AnimatedSection>

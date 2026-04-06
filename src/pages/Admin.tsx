@@ -148,14 +148,45 @@ export default function Admin() {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchOrders(), fetchProducts(), fetchUsers(), fetchDeletedUsers(), fetchLogs(), fetchContent()]);
+    await Promise.all([fetchOrders(), fetchProducts(), fetchUsers(), fetchDeletedUsers(), fetchLogs(), fetchContent(), fetchMessages(), fetchFeedbacks()]);
     setLoading(false);
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await fetch(`${API}/api/admin/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessagesList(data);
+        return;
+      }
+    } catch {}
+    setMessagesList(JSON.parse(localStorage.getItem("admin_messages_mock") || "[]"));
+  };
+
+  const fetchFeedbacks = async () => {
+    try {
+      const res = await fetch(`${API}/api/admin/feedbacks`);
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = data.map((f: any) => ({
+            id: f.id,
+            orderId: f.order_id,
+            userName: f.user_name,
+            productNames: f.product_names,
+            stars: f.stars,
+            reviewText: f.review_text,
+            date: f.date
+        }));
+        setFeedbacksList(mapped);
+        return;
+      }
+    } catch {}
+    setFeedbacksList(JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]"));
   };
 
   useEffect(() => { 
     fetchAll(); 
-    setMessagesList(JSON.parse(localStorage.getItem("admin_messages_mock") || "[]"));
-    setFeedbacksList(JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]"));
   }, []);
 
   // Clear badges intelligently on view

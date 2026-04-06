@@ -38,7 +38,6 @@ const Checkout = () => {
 
   // Read notification preferences the user set in their Profile > Settings
   const emailEnabled = localStorage.getItem("arteco_email_notif") !== "false";
-  const whatsappEnabled = localStorage.getItem("arteco_whatsapp_notif") !== "false";
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +62,6 @@ const Checkout = () => {
           body: JSON.stringify({
             order_id: orderId,
             emailEnabled,
-            whatsappEnabled,
             orderDetails: {
               email: user?.email,
               items,

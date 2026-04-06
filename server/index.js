@@ -239,6 +239,33 @@ app.get('/api/admin/deleted-users', async (req, res) => {
   res.json(data);
 });
 
+// ---- Messages & Feedbacks ----
+app.get('/api/admin/messages', async (req, res) => {
+  const { data, error } = await supabase.from('messages').select('*').order('date', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/messages', async (req, res) => {
+  const { name, email, message, date } = req.body;
+  const { data, error } = await supabase.from('messages').insert([{ name, email, message, date }]).select();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data[0]);
+});
+
+app.get('/api/admin/feedbacks', async (req, res) => {
+  const { data, error } = await supabase.from('feedbacks').select('*').order('date', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/feedbacks', async (req, res) => {
+  const { data, error } = await supabase.from('feedbacks').insert([req.body]).select();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data[0]);
+});
+
+
 // ---- Activity Logs ----
 app.get('/api/admin/logs', async (req, res) => {
   const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false });
