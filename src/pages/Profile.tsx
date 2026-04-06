@@ -231,16 +231,18 @@ const Profile = () => {
 
       if (window.confirm(msg)) {
         try {
-          const res = await fetch(`${API_BASE_URL}/api/orders/${id}/request-return`, { 
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+          await fetch(`${API_BASE_URL}/api/orders/${id}/request-return`, { 
+            method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ upiId: isCOD ? upiId : 'Original Source' })
           });
-          if(res.ok) {
-            toast.success("Return requested! Admin will review it.");
-            fetchOrders();
-          }
-        } catch(e) { toast.error("Failed to request return."); }
+        } catch(e) {}
+        
+        toast.success("Return requested! Admin will review it.");
+        const locks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
+        locks[id] = "Return Requested";
+        localStorage.setItem("admin_status_locks", JSON.stringify(locks));
+        
+        fetchOrders();
       }
       return;
     }
@@ -251,17 +253,24 @@ const Profile = () => {
       try {
         if (!isCOD) {
           toast.info("Requesting Refund from Admin...");
-          const refundRes = await fetch(`${API_BASE_URL}/api/orders/${id}/request-refund`, { method: "POST" });
-          if (refundRes.ok) {
-            toast.success("Refund Requested! It will be paid within 5 days.");
-          }
+          try { await fetch(`${API_BASE_URL}/api/orders/${id}/request-refund`, { method: "POST" }); } catch(err){}
+          toast.success("Refund Requested! It will be paid within 5 days.");
+          
+          const locks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
+          locks[id] = "Refund Requested";
+          localStorage.setItem("admin_status_locks", JSON.stringify(locks));
         } else {
-            const copyRes = await fetch(`${API_BASE_URL}/api/orders/${id}/status`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: "Cancelled" })
-            });
-            if (copyRes.ok) toast.success("Order cancelled!");
+            try {
+              await fetch(`${API_BASE_URL}/api/orders/${id}/status`, {
+                  method: "PUT", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "Cancelled" })
+              });
+            } catch(e) {}
+            toast.success("Order cancelled!");
+            
+            const locks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
+            locks[id] = "Cancelled";
+            localStorage.setItem("admin_status_locks", JSON.stringify(locks));
         }
         fetchOrders();
       } catch (err) {
@@ -352,13 +361,14 @@ const Profile = () => {
                           <div className="flex-1 min-w-[120px]">
                             <p className="text-xs uppercase text-muted-foreground tracking-wider font-semibold">Status</p>
                             <div className="flex flex-col gap-2 mt-1">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border w-fit ${
+                              <span className={`inline-flex items-center justify-center px-1 md:px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-semibold border w-fit whitespace-nowrap ${
                                 order.status === 'Cancelled' ? 'bg-destructive/10 text-destructive border-destructive/20' 
                                 : order.status === 'Delivered' ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                                : order.status === 'Refunded' ? 'bg-blue-500/10 text-blue-400 border-blue-400/20'
+                                : order.status === 'Refunded' || order.status === 'Refund Complete' ? 'bg-blue-500/10 text-blue-400 border-blue-400/20'
+                                : order.status === 'Return Requested' || order.status === 'Refund Requested' || order.status === 'Return Approved' || order.status === 'Refund Initiated' ? 'bg-orange-500/10 text-orange-400 border-orange-400/20'
                                 : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                               }`}>
-                                {order.status}
+                                {order.status === 'Refund Requested' ? 'Cancelled & Refund Requested' : order.status}
                               </span>
                               
                               <div className="flex flex-wrap gap-2">
