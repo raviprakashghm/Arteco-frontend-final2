@@ -80,9 +80,8 @@ const Profile = () => {
           const data = await res.json();
           // Status updates from admin are primary, so we use data first
           const formattedData = await Promise.all(data.map(async (o: any) => {
-            // THE "MASTERCARD SYNC": Priority 1 is what the Admin just broadcasted!
-            const broadcast = localStorage.getItem(`broadcast_status_${o.order_id || o.id}`);
-            const currentStatus = broadcast || o.status;
+            // DB is now the single source of truth, bypass legacy broadcast local storage.
+            const currentStatus = o.status;
             
             let deliveryOtpText = null;
             if (currentStatus?.toLowerCase() === 'out for delivery') {

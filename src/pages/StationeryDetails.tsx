@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import Header from "@/components/Header";
@@ -31,16 +31,40 @@ const StationeryDetails = () => {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
 
-  const item = items[itemId || ""];
-  if (!item) return null;
+  const fallbackLocal = JSON.parse(localStorage.getItem("admin_products_mock") || "[]").find((p: any) => p.id === itemId || p.name === itemId || p.title === itemId);
+  const staticItem = items[itemId || ""];
+  
+  const [dynamicItem, setDynamicItem] = useState<{name: string, price: number, image: string} | null>(
+    staticItem || (fallbackLocal ? { name: fallbackLocal.name || fallbackLocal.title, price: fallbackLocal.price, image: fallbackLocal.image } : null)
+  );
+
+  useEffect(() => {
+    if (!dynamicItem) {
+      const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      fetch(`${BASE}/api/admin/products`)
+        .then(res => res.json())
+        .then(data => {
+           if (Array.isArray(data)) {
+              let it = data.find(p => p.id === itemId || p.name === itemId || p.title === itemId);
+              if (it) setDynamicItem({ name: it.name || it.title, price: it.price || 0, image: it.image || "" });
+           }
+        }).catch(()=>{});
+    }
+  }, [itemId]);
+
+  if (!dynamicItem) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-pulse text-primary font-bold">Loading product details...</div>
+    </div>
+  );
 
   const handleAddToCart = () => {
     addItem({
       id: `stationery-${itemId}`,
-      name: item.name,
+      name: dynamicItem.name,
       quantity,
-      price: item.price,
-      image: item.image,
+      price: dynamicItem.price,
+      image: dynamicItem.image || "https://placehold.co/400x400?text=Stationery",
       category: "stationery",
     });
     toast.success("Added to cart!");
@@ -59,17 +83,17 @@ const StationeryDetails = () => {
           <AnimatedSection>
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="w-full md:w-1/2 bg-card rounded-2xl p-6 flex items-center justify-center border border-border">
-                <img src={item.image} alt={item.name} width={400} height={400} className="max-h-[400px] object-contain" />
+                <img src={dynamicItem.image || "https://placehold.co/400x400?text=Stationery"} alt={dynamicItem.name} width={400} height={400} className="max-h-[400px] object-contain" />
               </div>
               <div className="w-full md:w-1/2 space-y-6">
-                <h1 className="text-2xl font-bold">{item.name}</h1>
+                <h1 className="text-2xl font-bold">{dynamicItem.name}</h1>
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Select the quantity</p>
                   <QuantityPicker quantity={quantity} onChangeQuantity={setQuantity} />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Price</p>
-                  <p className="text-3xl font-bold">₹{item.price}</p>
+                  <p className="text-3xl font-bold">₹{dynamicItem.price}</p>
                 </div>
                 <button onClick={handleAddToCart} className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-semibold text-lg hover:bg-primary/90 transition-colors">
                   Add to cart
