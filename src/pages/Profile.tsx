@@ -6,7 +6,7 @@ import PageTransition from "@/components/PageTransition";
 import AnimatedSection from "@/components/AnimatedSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { User, LogOut, Package, Settings, Edit3, Mail, Trash2, AlertCircle, Check } from "lucide-react";
+import { User, LogOut, Package, Settings, Edit3, Mail, Trash2, AlertCircle, Check, Star } from "lucide-react";
 import { updateEmail, deleteUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -38,6 +38,31 @@ const Profile = () => {
   const [newEmail, setNewEmail] = useState("");
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  
+  const [feedbackOrderId, setFeedbackOrderId] = useState<string | null>(null);
+  const [feedbackForm, setFeedbackForm] = useState({ stars: 5, review: "" });
+
+  const submitFeedback = () => {
+    if(!feedbackOrderId) return;
+    const currentOrder = orders.find(o => o.id === feedbackOrderId);
+    if(!currentOrder) return;
+    
+    const existing = JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]");
+    const payload = {
+      id: `FB${Date.now()}`,
+      orderId: currentOrder.id,
+      userName: user?.name || user?.email,
+      productNames: currentOrder.items.map(i => `${i.name} (x${i.quantity})`).join(", "),
+      stars: feedbackForm.stars,
+      reviewText: feedbackForm.review,
+      date: new Date().toISOString()
+    };
+    localStorage.setItem("admin_feedbacks_mock", JSON.stringify([payload, ...existing]));
+    
+    toast.success("Feedback submitted! Thank you for reviewing your purchase.");
+    setFeedbackOrderId(null);
+    setFeedbackForm({ stars: 5, review: "" });
+  };
 
   useEffect(() => {
     setActiveTab(searchParams.get("tab") || "orders");
@@ -397,9 +422,14 @@ const Profile = () => {
                                 )}
                                 
                                 {order.status === "Delivered" && (
-                                  <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
-                                    Return & Refund
-                                  </button>
+                                  <>
+                                    <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
+                                      Return & Refund
+                                    </button>
+                                    <button onClick={() => setFeedbackOrderId(order.id)} className="text-[10px] font-bold tracking-wider uppercase text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/10 px-2 py-1 rounded transition-colors flex items-center gap-1">
+                                      <Star className="w-3 h-3 fill-yellow-500"/> Leave Feedback
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -665,6 +695,43 @@ const Profile = () => {
             
           </AnimatedSection>
         </div>
+
+        {/* Feedback Modal Overlay */}
+        {feedbackOrderId && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div className="bg-card border border-border w-full max-w-md rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+              <h3 className="text-xl font-bold mb-1">Leave Feedback</h3>
+              <p className="text-sm text-muted-foreground mb-6">Rate your recent purchase #{feedbackOrderId}</p>
+              
+              <div className="mb-6">
+                <label className="text-sm font-semibold mb-2 block">Rating</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button key={star} type="button" onClick={() => setFeedbackForm({ ...feedbackForm, stars: star })}>
+                      <Star className={`w-8 h-8 transition-colors ${feedbackForm.stars >= star ? 'text-yellow-500 fill-yellow-500' : 'text-zinc-600'}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <label className="text-sm font-semibold mb-2 block">Additional Review</label>
+                <textarea 
+                   rows={4}
+                   value={feedbackForm.review}
+                   onChange={e => setFeedbackForm({ ...feedbackForm, review: e.target.value })}
+                   placeholder="Tell us what you liked or how we can improve..."
+                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-sm focus:outline-none focus:border-primary resize-none"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button onClick={() => setFeedbackOrderId(null)} className="flex-1 py-3 font-semibold rounded-xl border border-border hover:bg-secondary">Cancel</button>
+                <button onClick={submitFeedback} className="flex-1 py-3 btn-primary text-black">Submit</button>
+              </div>
+            </div>
+          </div>
+        )}
         
         <Footer />
       </div>

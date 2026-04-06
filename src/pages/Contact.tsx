@@ -9,8 +9,27 @@ import { Send } from "lucide-react";
 const Contact = () => {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const messagePayload = {
+      id: `MSG${Date.now()}`,
+      name: form.name,
+      email: form.email,
+      message: form.message,
+      date: new Date().toISOString()
+    };
+    
+    const existing = JSON.parse(localStorage.getItem("admin_messages_mock") || "[]");
+    localStorage.setItem("admin_messages_mock", JSON.stringify([messagePayload, ...existing]));
+    
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/messages`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(messagePayload)
+      });
+    } catch(e) {}
+    
     toast.success("Message sent! We'll get back to you soon.");
     setForm({ name: "", email: "", message: "" });
   };

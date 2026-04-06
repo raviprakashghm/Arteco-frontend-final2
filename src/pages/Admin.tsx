@@ -5,7 +5,7 @@ import PageTransition from "@/components/PageTransition";
 import { toast } from "sonner";
 import {
   Package, Truck, FileEdit, Plus, Trash2, Users, Activity,
-  BarChart2, Settings2, ShieldAlert, Globe, RefreshCw, X, Check
+  BarChart2, Settings2, ShieldAlert, Globe, RefreshCw, X, Check, Star, MessageSquare, User, Mail
 } from "lucide-react";
 import artecoLogo from "@/assets/arteco-logo.png";
 
@@ -131,6 +131,8 @@ export default function Admin() {
   const [deletedUsers, setDeletedUsers] = useState<any[]>([]);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [siteContent, setSiteContent] = useState<Record<string, string>>({});
+  const [messagesList, setMessagesList] = useState<any[]>([]);
+  const [feedbacksList, setFeedbacksList] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
   const [showProductModal, setShowProductModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -144,7 +146,11 @@ export default function Admin() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { 
+    fetchAll(); 
+    setMessagesList(JSON.parse(localStorage.getItem("admin_messages_mock") || "[]"));
+    setFeedbacksList(JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]"));
+  }, []);
 
   const fetchOrders = async () => {
     try {
@@ -480,6 +486,8 @@ export default function Admin() {
             <TabBtn id="cancelled" label="Cancelled Orders" icon={X} active={activeTab === "cancelled"} onClick={setActiveTab} badge={cancelledOrdersList.length} danger />
             <TabBtn id="delivered" label="Total Delivered" icon={Check} active={activeTab === "delivered"} onClick={setActiveTab} badge={deliveredOrdersList.length} />
             <TabBtn id="returns" label="Order Returns" icon={RefreshCw} active={activeTab === "returns"} onClick={setActiveTab} badge={pendingReturnsCount} />
+            <TabBtn id="feedbacks" label="Feedbacks" icon={Star} active={activeTab === "feedbacks"} onClick={setActiveTab} badge={feedbacksList.length} />
+            <TabBtn id="messages" label="Messages" icon={MessageSquare} active={activeTab === "messages"} onClick={setActiveTab} badge={messagesList.length} />
             <TabBtn id="products" label="Products" icon={Package} active={activeTab === "products"} onClick={setActiveTab} />
             <TabBtn id="users" label="Users" icon={Users} active={activeTab === "users"} onClick={setActiveTab} />
             <TabBtn id="analytics" label="Analytics DB" icon={BarChart2} active={activeTab === "analytics"} onClick={setActiveTab} />
@@ -696,6 +704,54 @@ export default function Admin() {
                         ])).filter(Boolean).map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "feedbacks" && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-yellow-500"><Star className="text-yellow-500 fill-yellow-500" /> Customer Feedbacks</h2>
+                {feedbacksList.length === 0 && <div className="text-center p-12 bg-card rounded-2xl border border-border text-muted-foreground font-bold">No feedback received.</div>}
+                {feedbacksList.map((fb, i) => (
+                  <div key={i} className="bg-card border border-border rounded-2xl p-6 transition-all shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <p className="font-mono text-primary font-bold text-sm tracking-tight mb-1">{fb.orderId}</p>
+                        <p className="text-xs text-muted-foreground font-semibold flex items-center gap-2"><User size={12}/> {fb.userName}</p>
+                      </div>
+                      <div className="flex gap-1 text-yellow-500">
+                        {[...Array(5)].map((_, j) => (
+                          <Star key={j} className={`w-4 h-4 ${j < fb.stars ? "fill-yellow-500" : "text-zinc-600"}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-secondary/40 p-3 rounded-lg text-xs text-muted-foreground mb-4">
+                      {fb.productNames}
+                    </div>
+                    {fb.reviewText && (
+                       <p className="text-sm border-l-2 border-primary pl-4 text-foreground/90 italic">"{fb.reviewText}"</p>
+                    )}
+                    <div className="text-right mt-2 text-[10px] text-muted-foreground font-mono">{new Date(fb.date).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "messages" && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-blue-400"><MessageSquare className="text-blue-400" /> Contact Messages</h2>
+                {messagesList.length === 0 && <div className="text-center p-12 bg-card rounded-2xl border border-border text-muted-foreground font-bold">No messages received.</div>}
+                {messagesList.map((msg, i) => (
+                  <div key={i} className="bg-card border border-blue-500/20 rounded-2xl p-6 transition-all shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <p className="text-sm font-bold capitalize text-primary text-lg">{msg.name}</p>
+                        <p className="text-xs text-muted-foreground font-semibold flex items-center gap-2 tracking-wider"><Mail size={12}/> {msg.email}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm border-l-2 border-blue-500/50 pl-4 text-foreground leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                    <div className="text-right mt-4 text-[10px] text-muted-foreground font-mono">{new Date(msg.date).toLocaleString()}</div>
                   </div>
                 ))}
               </div>
