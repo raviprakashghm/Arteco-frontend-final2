@@ -391,7 +391,16 @@ export default function Admin() {
   const totalRevenue = orders.filter(o => validRevenueStatuses.includes(getStatus(o))).reduce((s, o) => s + (o.amount || o.total || 0), 0);
   
   // Active Orders are anything still being acted upon (not terminal)
-  const activeOrders = orders.filter(o => !["delivered", "cancelled", "refund complete", "refunded", "returned", "return cancelled"].includes(getStatus(o))).length;
+  // To match the UI orders tab exactly, we use activeRegularOrders length
+  const activeOrders = activeRegularOrders.length;
+  
+  // Pending Returns Count
+  const pendingReturnsCount = returnOrdersList.filter(o => !["refund complete", "refunded", "returned", "return cancelled"].includes(getStatus(o))).length;
+
+  const getDisplayUser = (o: any) => {
+    const match = usersList.find(u => u.email === o.user_email);
+    return match?.name || o.user_name || o.name || o.user_email || "ARTECO User";
+  };
 
   if (user?.email !== "admin@arteco.com") {
     return (
@@ -454,7 +463,7 @@ export default function Admin() {
             <TabBtn id="orders" label="Orders" icon={Truck} active={activeTab === "orders"} onClick={setActiveTab} />
             <TabBtn id="cancelled" label="Cancelled Orders" icon={X} active={activeTab === "cancelled"} onClick={setActiveTab} badge={cancelledOrdersList.length} danger />
             <TabBtn id="delivered" label="Total Delivered" icon={Check} active={activeTab === "delivered"} onClick={setActiveTab} badge={deliveredOrdersList.length} />
-            <TabBtn id="returns" label="Order Returns" icon={RefreshCw} active={activeTab === "returns"} onClick={setActiveTab} badge={returnOrdersList.length} />
+            <TabBtn id="returns" label="Order Returns" icon={RefreshCw} active={activeTab === "returns"} onClick={setActiveTab} badge={pendingReturnsCount} />
             <TabBtn id="products" label="Products" icon={Package} active={activeTab === "products"} onClick={setActiveTab} />
             <TabBtn id="users" label="Users" icon={Users} active={activeTab === "users"} onClick={setActiveTab} />
             <TabBtn id="analytics" label="Analytics DB" icon={BarChart2} active={activeTab === "analytics"} onClick={setActiveTab} />
@@ -517,7 +526,7 @@ export default function Admin() {
                         {o.status === "Refund Requested" && <span className="px-3 py-1 bg-yellow-500 text-black text-[10px] font-bold uppercase rounded-full animate-pulse flex items-center gap-1">💰 Cancel & Refund Requested</span>}
                         {o.status === "Return Requested" && <span className="px-3 py-1 bg-orange-500 text-white text-[10px] font-bold uppercase rounded-full animate-pulse flex items-center gap-1">📦 Return & Refund Requested</span>}
                       </div>
-                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{o.user_name || o.name || o.user_email || "ARTECO User"}</span></p>
+                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{getDisplayUser(o)}</span></p>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground uppercase font-bold">Override ₹</span>
                         <input type="number" className="bg-zinc-900 border border-zinc-800 text-primary font-bold text-xs px-3 py-1.5 rounded-lg w-24 focus:outline-none focus:border-primary" defaultValue={o.amount || o.total} onBlur={(e) => overrideOrderAmount(o.order_id || o.id, Number(e.target.value))} />
@@ -582,7 +591,7 @@ export default function Admin() {
                         <p className="font-mono text-primary font-bold text-lg tracking-tight">{o.order_id || o.id}</p>
                         <span className="px-3 py-1 bg-destructive text-white text-[10px] font-bold uppercase rounded-full flex items-center gap-1">❌ Cancelled</span>
                       </div>
-                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{o.user_name || o.name || o.user_email || "ARTECO User"}</span></p>
+                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{getDisplayUser(o)}</span></p>
                       <div className="bg-secondary/20 p-4 rounded-xl space-y-1 mt-3">
                         {o.items?.map((item: any, j: number) => (
                           <p key={j} className="text-xs text-muted-foreground">• {item.name} × {item.quantity} — <span className="text-primary">₹{item.price}</span></p>
@@ -605,7 +614,7 @@ export default function Admin() {
                         <p className="font-mono text-primary font-bold text-lg tracking-tight">{o.order_id || o.id}</p>
                         <span className="px-3 py-1 bg-green-500 text-black text-[10px] font-bold uppercase rounded-full flex items-center gap-1">✅ Delivery Complete</span>
                       </div>
-                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{o.user_name || o.name || o.user_email || "ARTECO User"}</span></p>
+                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{getDisplayUser(o)}</span></p>
                       <div className="bg-secondary/20 p-4 rounded-xl space-y-1 mt-3">
                         {o.items?.map((item: any, j: number) => (
                           <p key={j} className="text-xs text-muted-foreground">• {item.name} × {item.quantity} — <span className="text-primary">₹{item.price}</span></p>

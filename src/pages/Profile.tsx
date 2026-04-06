@@ -257,6 +257,7 @@ const Profile = () => {
         const locks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
         locks[id] = "Return Requested";
         localStorage.setItem("admin_status_locks", JSON.stringify(locks));
+        localStorage.setItem(`return_upi_${id}`, isCOD ? upiId : 'Original Source');
         
         fetchOrders();
       }
@@ -275,6 +276,7 @@ const Profile = () => {
           const locks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
           locks[id] = "Refund Requested";
           localStorage.setItem("admin_status_locks", JSON.stringify(locks));
+          localStorage.setItem(`return_upi_${id}`, 'Original Source - Automatic Reversal');
         } else {
             try {
               await fetch(`${API_BASE_URL}/api/orders/${id}/status`, {
