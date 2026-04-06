@@ -438,6 +438,14 @@ export default function Admin() {
                           <p key={j} className="text-xs text-muted-foreground">• {item.name} × {item.quantity} — <span className="text-primary">₹{item.price}</span></p>
                         ))}
                       </div>
+                      
+                      {(o.shipping_address || o.deliveryDetails?.address) && (
+                        <div className="bg-primary/5 border border-primary/20 p-3 rounded-xl mt-3 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                          <span className="font-bold text-primary">Delivery & Return Info:</span>
+                          <br />
+                          {o.shipping_address || o.deliveryDetails?.address}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2 min-w-[220px]">
                       <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Update Delivery Status</label>

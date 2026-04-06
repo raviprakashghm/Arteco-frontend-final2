@@ -372,11 +372,33 @@ app.post('/api/orders/:id/request-refund', async (req, res) => {
 
 app.post('/api/orders/:id/request-return', async (req, res) => {
   const { id } = req.params;
-  // Check if within 3 days. The frontend can also enforce this.
-  let { data, error } = await supabase.from('orders').update({ status: 'Return Requested' }).eq('order_id', id).select();
-  if (!data?.length) {
-    ({ data, error } = await supabase.from('orders').update({ status: 'Return Requested' }).eq('id', id).select());
+  const { upiId } = req.body;
+  
+  // First get current order
+  let { data: currentReq } = await supabase.from('orders').select('*').eq('order_id', id).single();
+  if (!currentReq) {
+    let alt = await supabase.from('orders').select('*').eq('id', id).single();
+    currentReq = alt.data;
   }
+  
+  let newAddress = currentReq?.shipping_address || "";
+  if (upiId && upiId !== 'Original Source') {
+      newAddress += `\n[REFUND UPI ID: ${upiId}]`;
+  }
+
+  // Update
+  let { data, error } = await supabase.from('orders').update({ 
+     status: 'Return Requested',
+     ...(upiId && upiId !== 'Original Source' ? { shipping_address: newAddress } : {})
+  }).eq('order_id', id).select();
+
+  if (!data?.length) {
+    ({ data, error } = await supabase.from('orders').update({ 
+       status: 'Return Requested',
+       ...(upiId && upiId !== 'Original Source' ? { shipping_address: newAddress } : {})
+    }).eq('id', id).select());
+  }
+
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, message: 'Return request submitted. Pickup will be arranged shortly.' });
 });

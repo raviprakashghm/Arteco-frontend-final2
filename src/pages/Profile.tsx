@@ -80,8 +80,9 @@ const Profile = () => {
           const data = await res.json();
           // Status updates from admin are primary, so we use data first
           const formattedData = await Promise.all(data.map(async (o: any) => {
-            // DB is now the single source of truth, bypass legacy broadcast local storage.
-            const currentStatus = o.status;
+            // Add back the master bridge! If DB exists but is lagging OR if Admin locked it locally:
+            const adminLocks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
+            const currentStatus = adminLocks[o.order_id || o.id] || o.status;
             
             let deliveryOtpText = null;
             if (currentStatus?.toLowerCase() === 'out for delivery') {
@@ -108,11 +109,23 @@ const Profile = () => {
           setOrders(formattedData);
         } else {
           const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
-          setOrders(savedOrders);
+          const adminLocks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
+          
+          const formattedFallback = savedOrders.map((o: any) => ({
+             ...o,
+             status: adminLocks[o.id] || o.status
+          }));
+          setOrders(formattedFallback);
         }
     } catch (err) {
       const savedOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
-      setOrders(savedOrders);
+      const adminLocks = JSON.parse(localStorage.getItem("admin_status_locks") || "{}");
+      
+      const formattedFallback = savedOrders.map((o: any) => ({
+         ...o,
+         status: adminLocks[o.id] || o.status
+      }));
+      setOrders(formattedFallback);
     }
   };
 
@@ -197,10 +210,30 @@ const Profile = () => {
   };
 
   const handleCancelOrder = async (id: string, paymentMethod: string, status: string) => {
+    const isCOD = paymentMethod === "COD" || paymentMethod === "Cash on Delivery";
+
     if (status?.toLowerCase() === 'delivered') {
-      if (window.confirm("Do you want to request a return for this delivered item? (Time limit: 3 Days)")) {
+      let upiId = "";
+      if (isCOD) {
+        const input = window.prompt("To process a return for a COD order, please enter your UPI ID for the refund:");
+        if (!input) {
+           toast.error("Return cancelled. UPI ID is required for COD refunds.");
+           return;
+        }
+        upiId = input;
+      }
+      
+      const msg = isCOD 
+        ? `Request return and refund to UPI ID: ${upiId}? (Time limit: 3 Days)` 
+        : `Request return and refund to your original online payment method? (Time limit: 3 Days)`;
+
+      if (window.confirm(msg)) {
         try {
-          const res = await fetch(`${API_BASE_URL}/api/orders/${id}/request-return`, { method: "POST" });
+          const res = await fetch(`${API_BASE_URL}/api/orders/${id}/request-return`, { 
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ upiId: isCOD ? upiId : 'Original Source' })
+          });
           if(res.ok) {
             toast.success("Return requested! Admin will review it.");
             fetchOrders();
@@ -210,9 +243,11 @@ const Profile = () => {
       return;
     }
 
-    if (window.confirm("Are you sure you want to cancel this order?")) {
+    const cancelMsg = isCOD ? "Are you sure you want to cancel this order?" : "Are you sure you want to cancel this order and request a refund to your original payment method?";
+
+    if (window.confirm(cancelMsg)) {
       try {
-        if (paymentMethod !== "COD") {
+        if (!isCOD) {
           toast.info("Requesting Refund from Admin...");
           const refundRes = await fetch(`${API_BASE_URL}/api/orders/${id}/request-refund`, { method: "POST" });
           if (refundRes.ok) {
@@ -327,13 +362,13 @@ const Profile = () => {
                               <div className="flex flex-wrap gap-2">
                                 {["Placed", "Processing", "Dispatched", "Shipped"].includes(order.status) && (
                                   <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground hover:text-destructive border border-border hover:border-destructive/30 px-2 py-1 rounded transition-colors">
-                                    Cancel & Refund
+                                    {(order.payment_method === "COD" || order.payment_method === "Cash on Delivery") ? "Cancel Order" : "Cancel & Refund"}
                                   </button>
                                 )}
                                 
                                 {order.status === "Delivered" && (
                                   <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
-                                    Request Return
+                                    Return & Refund
                                   </button>
                                 )}
                               </div>
