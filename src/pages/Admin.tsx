@@ -152,10 +152,10 @@ export default function Admin() {
   };
 
   const fetchProducts = async () => {
-    let local = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+    let localData = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
     
-    if (local.length === 0) {
-       local = [
+    if (localData.length === 0) {
+       localData = [
         { name: "T Scale", id: "t-scale", category: "stationery", price: 350, description: "Professional T-Scale for architectural drafting", image: "/assets/t-scale.jpg" },
         { name: "Triangular Scale", id: "triangular-scale", category: "stationery", price: 280, description: "Triangular scale ruler", image: "/assets/triangular-scale.jpg" },
         { name: "Set Square", id: "set-square", category: "stationery", price: 320, description: "Quality set squares", image: "/assets/set-square.jpg" },
@@ -165,22 +165,31 @@ export default function Admin() {
         { name: "Cartridge Sheets", id: "cartridge-sheet", category: "sheets", price: 12, description: "A2 size", image: "/assets/cartridge-sheet.jpg" },
         { name: "Ivory Sheets", id: "ivory-sheet", category: "sheets", price: 15, description: "Premium finish", image: "/assets/ivory-sheet.jpg" }
        ];
-       localStorage.setItem("admin_products_mock", JSON.stringify(local));
+       localStorage.setItem("admin_products_mock", JSON.stringify(localData));
     }
     
     try { 
       const res = await fetch(`${API}/api/admin/products`); 
       if (res.ok) { 
-        const dbProducts = await res.json();
-        setProducts(dbProducts);
-        // Sync local mock too
-        localStorage.setItem("admin_products_mock", JSON.stringify(dbProducts));
+        let dbProducts = await res.json();
+        if (!Array.isArray(dbProducts)) dbProducts = [];
+        
+        // Smart merge if DB is alive but empty vs local
+        const merged = [...dbProducts];
+        localData.forEach((ld: any) => {
+           if (!merged.some(m => m.id === ld.id)) {
+              merged.push(ld);
+           }
+        });
+        
+        setProducts(merged);
+        localStorage.setItem("admin_products_mock", JSON.stringify(merged));
         return;
       }
     } catch { }
     // Fallback to local storage
-    const localData = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
-    setProducts(localData);
+    const fallbackLocal = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+    setProducts(fallbackLocal);
   };
 
   const fetchUsers = async () => {
@@ -365,7 +374,7 @@ export default function Admin() {
   );
 
   const totalRevenue = orders.filter(o => o.status === "Delivered").reduce((s, o) => s + (o.amount || o.total || 0), 0);
-  const activeOrders = orders.filter(o => !["Delivered", "Cancelled", "Refunded"].includes(o.status)).length;
+  const activeOrders = orders.filter(o => !["delivered", "cancelled", "refunded", "refund complete"].includes((o.status || "").toLowerCase())).length;
 
   if (user?.email !== "admin@arteco.com") {
     return (
@@ -481,7 +490,7 @@ export default function Admin() {
                     </div>
                     <div className="flex flex-col gap-2 min-w-[220px]">
                       <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Update Delivery Status</label>
-                      {o.status === "Cancelled" ? (
+                      {(statusOverrides[o.order_id || o.id] || o.status || "").toLowerCase() === "cancelled" ? (
                         <div className="bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl text-sm font-bold text-red-500 text-center shadow-xl">ORDER CANCELLED</div>
                       ) : (
                         <select 

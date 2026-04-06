@@ -116,8 +116,8 @@ const Profile = () => {
           
           const formattedFallback = savedOrders.map((o: any) => ({
              ...o,
-             status: adminLocks[o.id] || o.status,
-             otp: adminLocks[o.id] === 'Out for Delivery' || o.status === 'Out for Delivery' ? localStorage.getItem(`delivery_otp_${o.id}`) : o.otp,
+             status: adminLocks[o.order_id || o.id] || o.status,
+             otp: adminLocks[o.order_id || o.id] === 'Out for Delivery' || o.status === 'Out for Delivery' ? localStorage.getItem(`delivery_otp_${o.order_id || o.id}`) : o.otp,
              payment_method: o.payment_method || o.paymentMethod || 'Online'
           }));
           setOrders(formattedFallback);
@@ -128,8 +128,8 @@ const Profile = () => {
       
       const formattedFallback = savedOrders.map((o: any) => ({
          ...o,
-         status: adminLocks[o.id] || o.status,
-         otp: adminLocks[o.id] === 'Out for Delivery' || o.status === 'Out for Delivery' ? localStorage.getItem(`delivery_otp_${o.id}`) : o.otp,
+         status: adminLocks[o.order_id || o.id] || o.status,
+         otp: adminLocks[o.order_id || o.id] === 'Out for Delivery' || o.status === 'Out for Delivery' ? localStorage.getItem(`delivery_otp_${o.order_id || o.id}`) : o.otp,
          payment_method: o.payment_method || o.paymentMethod || 'Online'
       }));
       setOrders(formattedFallback);
