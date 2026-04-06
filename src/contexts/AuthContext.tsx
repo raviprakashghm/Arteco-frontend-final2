@@ -67,11 +67,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await firebaseUpdateProfile(cred.user, { displayName: name });
     setUser(mapFirebaseUser(cred.user));
+
+    try {
+      const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      await fetch(`${BASE}/api/users/sync`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: cred.user.uid, email, name, phone: "" })
+      });
+    } catch (e) {}
   };
 
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    const cred = await signInWithPopup(auth, provider);
+    const fbUser = cred.user;
+    
+    try {
+      const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      await fetch(`${BASE}/api/users/sync`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: fbUser.uid, email: fbUser.email, name: fbUser.displayName || fbUser.email?.split("@")[0], phone: "" })
+      });
+    } catch (e) {}
   };
 
   const logout = async () => {
