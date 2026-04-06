@@ -113,7 +113,8 @@ const Profile = () => {
           
           const formattedFallback = savedOrders.map((o: any) => ({
              ...o,
-             status: adminLocks[o.id] || o.status
+             status: adminLocks[o.id] || o.status,
+             payment_method: o.payment_method || o.paymentMethod || 'Online'
           }));
           setOrders(formattedFallback);
         }
@@ -123,7 +124,8 @@ const Profile = () => {
       
       const formattedFallback = savedOrders.map((o: any) => ({
          ...o,
-         status: adminLocks[o.id] || o.status
+         status: adminLocks[o.id] || o.status,
+         payment_method: o.payment_method || o.paymentMethod || 'Online'
       }));
       setOrders(formattedFallback);
     }
