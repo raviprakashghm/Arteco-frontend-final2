@@ -10,7 +10,9 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, loginWithGoogle, isAuthenticated } = useAuth();
+  const [view, setView] = useState<"login" | "forgot">("login");
+  const [resetEmail, setResetEmail] = useState("");
+  const { login, loginWithGoogle, isAuthenticated, resetPassword } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -29,6 +31,21 @@ const Login = () => {
       navigate("/profile", { replace: true });
     } catch (err: any) {
       toast.error(err?.message || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) return;
+    setLoading(true);
+    try {
+      await resetPassword(resetEmail);
+      toast.success("Password reset email sent! Check your inbox.");
+      setView("login");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send reset email.");
     } finally {
       setLoading(false);
     }
@@ -56,15 +73,46 @@ const Login = () => {
               {/* Logo / Title */}
               <div className="text-center mb-8">
                 <p className="text-xs text-muted-foreground tracking-[0.2em] uppercase mb-1">
-                  Welcome back
+                  {view === "login" ? "Welcome back" : "Reset Password"}
                 </p>
                 <h1 className="text-2xl font-bold tracking-tight">
-                  Sign in to{" "}
-                  <span className="text-primary">Arteco</span>
+                  {view === "login" ? (
+                    <>Sign in to <span className="text-primary">Arteco</span></>
+                  ) : (
+                    <>Recover Account</>
+                  )}
                 </h1>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              {view === "forgot" ? (
+                <form onSubmit={handleReset} className="space-y-5">
+                  <div>
+                    <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
+                      Registered Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="auth-input"
+                      placeholder="your@email.com"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Sending..." : "Send Reset Link"}
+                  </button>
+                  <p className="text-center text-xs text-muted-foreground mt-4 cursor-pointer hover:text-primary transition-colors font-semibold" onClick={() => setView("login")}>
+                    ← Back to Sign In
+                  </p>
+                </form>
+              ) : (
+                <>
+                  <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
                     Email
@@ -80,9 +128,12 @@ const Login = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">
-                    Password
-                  </label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
+                      Password
+                    </label>
+                    <button type="button" onClick={() => setView("forgot")} className="text-xs text-primary font-semibold hover:underline">Forgot password?</button>
+                  </div>
                   <input
                     id="login-password"
                     type="password"
@@ -151,6 +202,8 @@ const Login = () => {
                   Sign up
                 </Link>
               </p>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import {
   updateProfile as firebaseUpdateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  sendPasswordResetEmail,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -29,6 +30,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => void;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,6 +79,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem("arteco_profile_extra");
   };
 
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  };
+
   const updateProfile = (data: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return null;
@@ -95,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, signup, loginWithGoogle, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, signup, loginWithGoogle, logout, updateProfile, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
