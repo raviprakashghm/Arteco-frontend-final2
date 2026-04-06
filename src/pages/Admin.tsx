@@ -333,28 +333,37 @@ export default function Admin() {
        }
        
        const localPin = localStorage.getItem(`delivery_otp_${id}`);
-       if (localPin && localPin !== otp) {
-          toast.error("Incorrect Delivery OTP!");
-          return;
-       } else if (!localPin) {
+       let verified = false;
+
+       // 1. Try Local Pin
+       if (localPin && localPin === otp) {
+           verified = true;
+       }
+
+       // 2. If Local fails (maybe due to old bugged pin) or doesn't exist, heavily trust the Node backend!
+       if (!verified) {
            try {
-             // Fallback hit node backend if memory is intact
              const res = await fetch(`${BASE}/api/orders/${id}/verify-delivery-otp`, {
                method: "POST", headers: { "Content-Type": "application/json" },
                body: JSON.stringify({ otp })
              });
              const data = await res.json();
-             if (!res.ok) {
-                toast.error(data.error || "Incorrect OTP");
-                return;
+             if (res.ok) {
+                 verified = true; // Server officially validated it!
+             } else {
+                 toast.error(data.error || "Incorrect OTP");
+                 return;
              }
-             toast.success("OTP Verified via Server!");
            } catch (err) {
-             toast.error("Incorrect Delivery OTP! Could not verify against server.");
+             toast.error("Incorrect Delivery OTP! Server is offline and local pin mismatched.");
              return;
            }
-       } else {
-           toast.success("Local OTP Verified! Delivered.");
+       }
+
+       if (verified) {
+           // Success!
+           localStorage.removeItem(`delivery_otp_${id}`); // Clean up
+           toast.success("OTP Successfully Verified! Order Marked as Delivered.");
        }
     }
 
