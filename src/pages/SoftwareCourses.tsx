@@ -5,6 +5,8 @@ import PageTransition from "@/components/PageTransition";
 import AnimatedSection from "@/components/AnimatedSection";
 import { BookOpen, Monitor, Cpu, Palette, Box, Layers } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { useCart } from "@/contexts/CartContext";
 
 const tiers = [
   {
@@ -47,6 +49,8 @@ const specialPlan = [
 const SoftwareCourses = () => {
   const [extraCourses, setExtraCourses] = useState<any[]>([]);
   const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const navigate = useNavigate();
+  const { addItem } = useCart();
 
   useEffect(() => {
     fetch(`${API}/api/admin/products`)
@@ -92,7 +96,14 @@ const SoftwareCourses = () => {
                       </li>
                     ))}
                   </ul>
-                  <button className="mt-6 w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors">
+                  <button 
+                    onClick={() => {
+                        addItem({ id: `tier-${tier.name.toLowerCase()}`, name: `${tier.name} Software Course`, price: parseInt(tier.price.replace(/\D/g, '')), quantity: 1, category: "course", image: `https://placehold.co/400x400/1e1e1e/c9a14a?text=${tier.name}+Course` });
+                        toast.success(`Added ${tier.name} Course to cart!`);
+                        navigate("/cart");
+                    }} 
+                    className="mt-6 w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+                  >
                     Enroll Now
                   </button>
                 </div>
@@ -130,7 +141,16 @@ const SoftwareCourses = () => {
                       <h4 className="font-bold text-lg mb-1">{p.name}</h4>
                       <p className="text-primary font-bold mb-3">₹{p.price}</p>
                       <p className="text-sm text-muted-foreground flex-1 mb-4">{p.description}</p>
-                      <button onClick={() => toast.success(`Enrolling in ${p.name}...`)} className="btn-primary py-2 text-xs">Enroll Online</button>
+                      <button 
+                        onClick={() => {
+                          addItem({ id: p.id || p.name, name: p.name, price: p.price, quantity: 1, category: "course", image: p.image });
+                          toast.success(`Enrolling in ${p.name}...`);
+                          navigate("/cart");
+                        }} 
+                        className="btn-primary py-2 text-xs"
+                      >
+                        Enroll Online
+                      </button>
                     </div>
                   </AnimatedSection>
                 ))}
@@ -152,7 +172,11 @@ const SoftwareCourses = () => {
               </div>
               <div className="flex items-center gap-4">
                 <p className="text-3xl font-bold text-primary">₹14,999</p>
-                <button className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors">
+                <button onClick={() => {
+                  addItem({ id: "special-plan", name: "Special Plan Full Course", price: 14999, quantity: 1, category: "course", image: "https://placehold.co/400x400/1e1e1e/c9a14a?text=Special+Plan" });
+                  toast.success("Special Plan Added to Cart!");
+                  navigate("/cart");
+                }} className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors">
                   Enroll Now
                 </button>
               </div>

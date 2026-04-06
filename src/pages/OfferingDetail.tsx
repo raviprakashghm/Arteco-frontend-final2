@@ -1,4 +1,7 @@
 import { useParams, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useCart } from "@/contexts/CartContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PageTransition from "@/components/PageTransition";
@@ -63,6 +66,8 @@ const offeringData: Record<string, {
 
 const OfferingDetail = () => {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const { addItem } = useCart();
   const offering = offeringData[slug || ""];
 
   if (!offering) {
@@ -150,11 +155,19 @@ const OfferingDetail = () => {
         <section className="container mx-auto px-6 py-12">
           <AnimatedSection>
             <div className="rounded-2xl bg-card border border-border p-8 text-center">
-              <h2 className="text-2xl font-bold mb-3">Interested?</h2>
-              <p className="text-muted-foreground mb-6">Get in touch with us to learn more or book a session.</p>
-              <Link to="/contact" className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors inline-block">
-                Contact Us
-              </Link>
+              <h2 className="text-2xl font-bold mb-3">Book this Offering</h2>
+              <p className="text-muted-foreground mb-6">You can reserve and book this offering entirely online.</p>
+              <button 
+                onClick={() => {
+                   const defaultPrices: Record<string, number> = { "ar-vr": 5000, "educational-tours": 3000, "workshops": 500 };
+                   addItem({ id: slug || 'offering', name: offering.title, quantity: 1, price: defaultPrices[slug || ""] || 1000, image: offering.image, category: slug || 'event' });
+                   toast.success(`Added ${offering.title} booking to cart!`);
+                   navigate("/cart");
+                }}
+                className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors inline-block"
+              >
+                Book Now to Cart
+              </button>
             </div>
           </AnimatedSection>
         </section>
