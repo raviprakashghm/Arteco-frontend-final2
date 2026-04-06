@@ -8,6 +8,7 @@ import {
   BarChart2, Settings2, ShieldAlert, Globe, RefreshCw, X, Check, Star, MessageSquare, User, Mail
 } from "lucide-react";
 import artecoLogo from "@/assets/arteco-logo.png";
+import emailjs from '@emailjs/browser';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Product { id?: string; name: string; price: number; description?: string; category?: string; image?: string; }
@@ -137,6 +138,11 @@ export default function Admin() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [logFilter, setLogFilter] = useState("");
+
+  const [replyModalOpen, setReplyModalOpen] = useState(false);
+  const [replyMessageData, setReplyMessageData] = useState<any>(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -438,9 +444,39 @@ export default function Admin() {
   const deliveredBadgeCount = typeof window !== 'undefined' ? Math.max(0, deliveredOrdersList.length - Number(localStorage.getItem("admin_last_viewed_delivered") || 0)) : 0;
 
   const handleReplyMessage = (msg: any) => {
-    const subject = encodeURIComponent(`Re: Your message to ARTECO (${new Date(msg.date).toLocaleDateString()})`);
-    const body = encodeURIComponent(`Hello ${msg.name},\n\nThank you for reaching out to us.\n\n[Write your reply here]\n\nThanks and regards,\nARTECO Admin Team`);
-    window.location.href = `mailto:${msg.email}?subject=${subject}&body=${body}`;
+    setReplyMessageData(msg);
+    setReplyContent(`Hello ${msg.name},\n\nThank you for reaching out to us.\n\n[Write your reply here]\n\nThanks and regards,\nARTECO Team`);
+    setReplyModalOpen(true);
+  };
+
+  const handleSendReply = async () => {
+    if (!replyMessageData || !replyContent) return;
+    setIsSendingReply(true);
+    
+    try {
+      await emailjs.send(
+        "service_fgme6zs", 
+        "template_f1vshdd", // Add your new EmailJS template ID here for "Admin Replies" if you want a cleaner looking email, right now using fallback
+        {
+          to_name: replyMessageData.name,
+          to_email: replyMessageData.email,
+          reply_message: replyContent,
+          admin_email: "arteco.connects@gmail.com",
+          order_id: "Support Team",
+          total_amount: "N/A",
+          order_details: replyContent 
+        },
+        "rwIUiOUbWpprqVmoJ" // Your public key
+      );
+      toast.success("Reply successfully sent to user!");
+      setReplyModalOpen(false);
+      setReplyMessageData(null);
+      setReplyContent("");
+    } catch (e) {
+      toast.error("Failed to send message. Please ensure your EmailJS is online!");
+    } finally {
+      setIsSendingReply(false);
+    }
   };
 
   if (user?.email !== "arteco.connects@gmail.com") {
@@ -1089,6 +1125,45 @@ export default function Admin() {
             )}
           </div>
         </div>
+
+        {/* Email Reply Modal Overlay */}
+        {replyModalOpen && (
+          <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-card border border-blue-500/30 w-full max-w-xl rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-6 border-b border-border pb-4">
+                <h3 className="text-xl font-bold flex items-center gap-2 text-blue-400"><Mail className="w-5 h-5"/> Send Reply Email</h3>
+                <button onClick={() => setReplyModalOpen(false)} className="text-muted-foreground hover:text-white transition-colors"><X className="w-5 h-5"/></button>
+              </div>
+              
+              <div className="mb-4 space-y-1">
+                <p className="text-sm font-semibold capitalize">To: <span className="text-primary tracking-wider">{replyMessageData?.name}</span> <span className="text-muted-foreground">({replyMessageData?.email})</span></p>
+                <p className="text-xs text-muted-foreground bg-secondary/30 p-3 rounded-lg border border-border mt-3">{replyMessageData?.message}</p>
+              </div>
+              
+              <div className="mb-6">
+                <label className="text-xs font-semibold uppercase tracking-widest text-blue-400 mb-2 block">Your Reply</label>
+                <textarea 
+                   rows={8}
+                   value={replyContent}
+                   onChange={e => setReplyContent(e.target.value)}
+                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500/50 resize-none font-mono text-zinc-300"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button onClick={() => setReplyModalOpen(false)} className="flex-1 py-3 font-semibold rounded-xl border border-border hover:bg-secondary transition-colors text-sm">Cancel</button>
+                <button 
+                  onClick={handleSendReply} 
+                  disabled={isSendingReply}
+                  className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all flex justify-center items-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    {isSendingReply ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"/> : <MessageSquare className="w-4 h-4"/>} 
+                    {isSendingReply ? "Sending..." : "Send Reply"}
+                  </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PageTransition>
   );
