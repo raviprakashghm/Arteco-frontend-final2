@@ -198,7 +198,19 @@ export default function Admin() {
   };
 
   const fetchUsers = async () => {
-    try { const res = await fetch(`${API}/api/admin/users`); if (res.ok) setUsersList(await res.json()); } catch { }
+    try { 
+      const res = await fetch(`${API}/api/admin/users`); 
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+        localStorage.setItem("admin_users_mock", JSON.stringify(data));
+      } else {
+        throw new Error("Bad response");
+      }
+    } catch {
+      const fallback = JSON.parse(localStorage.getItem("admin_users_mock") || "[]");
+      setUsersList(fallback);
+    }
   };
 
   const syncUsersManual = async () => {
@@ -399,7 +411,11 @@ export default function Admin() {
 
   const getDisplayUser = (o: any) => {
     const match = usersList.find(u => u.email === o.user_email);
-    return match?.name || o.user_name || o.name || o.user_email || "ARTECO User";
+    if (match?.name) return match.name;
+    if (o.user_name) return o.user_name;
+    if (o.name) return o.name;
+    if (o.user_email) return o.user_email.split('@')[0];
+    return "Unknown User";
   };
 
   if (user?.email !== "admin@arteco.com") {

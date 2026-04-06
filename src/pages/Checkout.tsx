@@ -146,6 +146,9 @@ const Checkout = () => {
     const orderId = `ART${new Date().getFullYear()}${Math.floor(1000 + Math.random() * 9000)}`;
     const newOrder = {
       id: orderId,
+      order_id: orderId,
+      user_email: user?.email,
+      user_name: user?.name,
       date: new Date().toISOString(),
       items: [...items],
       total: orderTotal,
