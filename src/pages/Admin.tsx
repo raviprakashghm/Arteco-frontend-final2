@@ -381,7 +381,9 @@ export default function Admin() {
   const getStatus = (o: any) => (statusOverrides[o.order_id || o.id] || o.status || "").toLowerCase();
 
   const isReturnPhase = (o: any) => ["return requested", "return approved", "order pick up", "returned", "refund requested", "refund initiated", "refund complete", "return cancelled"].includes(getStatus(o));
-  const regularOrders = [...orders].reverse().filter(o => !isReturnPhase(o));
+  const activeRegularOrders = [...orders].reverse().filter(o => !isReturnPhase(o) && getStatus(o) !== "delivered" && getStatus(o) !== "cancelled");
+  const deliveredOrdersList = [...orders].reverse().filter(o => !isReturnPhase(o) && getStatus(o) === "delivered");
+  const cancelledOrdersList = [...orders].reverse().filter(o => getStatus(o) === "cancelled");
   const returnOrdersList = [...orders].reverse().filter(o => isReturnPhase(o));
 
   // Revenue counts ONLY delivered goods that haven't been successfully fully refunded
@@ -450,6 +452,8 @@ export default function Admin() {
           <div className="flex flex-wrap gap-2 mb-8 border-b border-border/50 pb-5">
             <TabBtn id="overview" label="Overview" icon={BarChart2} active={activeTab === "overview"} onClick={setActiveTab} />
             <TabBtn id="orders" label="Orders" icon={Truck} active={activeTab === "orders"} onClick={setActiveTab} />
+            <TabBtn id="cancelled" label="Cancelled Orders" icon={X} active={activeTab === "cancelled"} onClick={setActiveTab} badge={cancelledOrdersList.length} danger />
+            <TabBtn id="delivered" label="Total Delivered" icon={Check} active={activeTab === "delivered"} onClick={setActiveTab} badge={deliveredOrdersList.length} />
             <TabBtn id="returns" label="Order Returns" icon={RefreshCw} active={activeTab === "returns"} onClick={setActiveTab} badge={returnOrdersList.length} />
             <TabBtn id="products" label="Products" icon={Package} active={activeTab === "products"} onClick={setActiveTab} />
             <TabBtn id="users" label="Users" icon={Users} active={activeTab === "users"} onClick={setActiveTab} />
@@ -501,8 +505,8 @@ export default function Admin() {
             {activeTab === "orders" && (
               <div className="space-y-4">
                 <h2 className="text-xl font-bold flex items-center gap-2"><Truck className="text-primary"/> Manage Orders</h2>
-                {regularOrders.length === 0 && <div className="text-center p-12 bg-card rounded-2xl border border-border text-muted-foreground font-bold">No regular orders actively pending.</div>}
-                {regularOrders.map((o, i) => (
+                {activeRegularOrders.length === 0 && <div className="text-center p-12 bg-card rounded-2xl border border-border text-muted-foreground font-bold">No regular orders actively pending.</div>}
+                {activeRegularOrders.map((o, i) => (
                   <div key={i} className={`bg-card border rounded-2xl p-6 flex flex-col md:flex-row gap-6 md:items-start transition-all ${o.status === 'Cancelled' ? 'border-red-500/50 bg-red-500/5' : 'border-border hover:border-border/80 shadow-sm'}`}>
                     <div className="flex-1 space-y-3">
                       <div className="flex items-center gap-3">
@@ -561,6 +565,63 @@ export default function Admin() {
                          <button onClick={() => updateOrderStatus(o.order_id || o.id, "Refund Initiated")} className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 mt-2 text-xs py-2 rounded-lg font-bold hover:bg-yellow-500 shadow-sm transition-all hover:text-black">Initiate Refund</button>
                       )}
 
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "cancelled" && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-destructive"><X className="text-destructive"/> Cancelled Orders</h2>
+                {cancelledOrdersList.length === 0 && <div className="text-center p-12 bg-card rounded-2xl border border-border text-muted-foreground font-bold">No cancelled orders.</div>}
+                {cancelledOrdersList.map((o, i) => (
+                  <div key={i} className={`bg-card border rounded-2xl p-6 flex flex-col md:flex-row gap-6 md:items-start transition-all border-destructive/20 bg-destructive/5 shadow-sm`}>
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <p className="font-mono text-primary font-bold text-lg tracking-tight">{o.order_id || o.id}</p>
+                        <span className="px-3 py-1 bg-destructive text-white text-[10px] font-bold uppercase rounded-full flex items-center gap-1">❌ Cancelled</span>
+                      </div>
+                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{o.user_name || o.name || o.user_email || "ARTECO User"}</span></p>
+                      <div className="bg-secondary/20 p-4 rounded-xl space-y-1 mt-3">
+                        {o.items?.map((item: any, j: number) => (
+                          <p key={j} className="text-xs text-muted-foreground">• {item.name} × {item.quantity} — <span className="text-primary">₹{item.price}</span></p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "delivered" && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-green-500"><Check className="text-green-500"/> Delivered Orders</h2>
+                {deliveredOrdersList.length === 0 && <div className="text-center p-12 bg-card rounded-2xl border border-border text-muted-foreground font-bold">No delivered orders.</div>}
+                {deliveredOrdersList.map((o, i) => (
+                  <div key={i} className={`bg-card border rounded-2xl p-6 flex flex-col md:flex-row gap-6 md:items-start transition-all border-green-500/30 bg-green-500/5 shadow-sm`}>
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <p className="font-mono text-primary font-bold text-lg tracking-tight">{o.order_id || o.id}</p>
+                        <span className="px-3 py-1 bg-green-500 text-black text-[10px] font-bold uppercase rounded-full flex items-center gap-1">✅ Delivery Complete</span>
+                      </div>
+                      <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{o.user_name || o.name || o.user_email || "ARTECO User"}</span></p>
+                      <div className="bg-secondary/20 p-4 rounded-xl space-y-1 mt-3">
+                        {o.items?.map((item: any, j: number) => (
+                          <p key={j} className="text-xs text-muted-foreground">• {item.name} × {item.quantity} — <span className="text-primary">₹{item.price}</span></p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 min-w-[220px]">
+                      <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Update Delivery Status</label>
+                      <select 
+                        className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all shadow-xl focus:border-primary border-zinc-800`} 
+                        value={statusOverrides[o.order_id || o.id] || o.status || "Delivered"} 
+                        onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}
+                      >
+                        <option value="Delivered">Delivered</option>
+                        <option value="Return Requested">Open Return Flow</option>
+                      </select>
                     </div>
                   </div>
                 ))}

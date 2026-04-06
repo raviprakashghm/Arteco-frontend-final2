@@ -136,14 +136,25 @@ const Profile = () => {
     }
   };
 
-  const getOrderStatusProgress = (status: string) => {
+  const getOrderStatusProgress = (status: string, isReturnFlow: boolean = false) => {
     if (!status) return 0;
     const s = status.toLowerCase().trim();
-    // 💡 THE "MASTERCARD" STAGES MAPPING:
+    
+    if (isReturnFlow) {
+      if (s === 'return requested' || s === 'refund requested') return 0;
+      if (s === 'return approved') return 1;
+      if (s === 'order pick up') return 2;
+      if (s === 'returned') return 3;
+      if (s === 'refund initiated') return 4;
+      if (s === 'refund complete') return 5;
+      return 0; // fallback
+    }
+
+    // Normal flow
     if (s === 'placed') return 0;
     if (s === 'processing') return 1;
     if (s === 'dispatched') return 2;
-    if (s === 'shipped') return 3; // 🎯 FORCED STAGE 4
+    if (s === 'shipped') return 3;
     if (s === 'out for delivery') return 4;
     if (s === 'delivered') return 5;
     return 0;
@@ -402,33 +413,51 @@ const Profile = () => {
                                 </div>
                             ) : (
                               <div className="mb-8 mt-4 relative">
-                                <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-secondary rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full bg-primary transition-all duration-1000" 
-                                    style={{ width: `${(getOrderStatusProgress(order.status) / 5) * 100}%` }}
-                                  />
-                                </div>
-                                <div className="relative flex justify-between z-10 w-full text-[10px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground gap-1">
-                                  {['Placed', 'Processing', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered'].map((step, idx) => {
-                                    const isActive = getOrderStatusProgress(order.status) >= idx;
-                                    return (
-                                      <div key={idx} className="flex flex-col items-center gap-2 flex-1 text-center min-w-0 relative">
-                                        <div className={`w-6 h-6 z-10 rounded-full flex items-center justify-center transition-colors shrink-0 ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
-                                          {isActive ? '✓' : idx + 1}
-                                        </div>
-                                        <span className={`hidden md:block ${isActive ? 'text-primary font-bold' : ''}`}>{step}</span>
-                                        <span className={`md:hidden ${isActive ? 'text-primary font-bold' : ''}`}>{step.split(' ')[0]}</span>
-                                        
-                                        {/* OTP Display when out for delivery */}
-                                        {step === 'Out for Delivery' && isActive && order.otp && (
-                                            <div className="absolute top-10 whitespace-nowrap bg-zinc-900 border border-primary/50 text-white text-xs px-2 py-1 rounded-md mt-2 shadow-xl animate-pulse z-20">
-                                              OTP: <span className="font-bold text-primary tracking-widest text-sm">{order.otp}</span>
-                                            </div>
-                                        )}
+                                {(() => {
+                                  const isReturnStatus = ["return requested", "return approved", "order pick up", "returned", "refund requested", "refund initiated", "refund complete", "return cancelled"].includes((order.status || "").toLowerCase());
+                                  const steps = isReturnStatus
+                                    ? ['Return Req.', 'Approved', 'Pick Up', 'Returned', 'Refund Init.', 'Complete']
+                                    : ['Placed', 'Processing', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered'];
+                                  
+                                  const progress = getOrderStatusProgress(order.status, isReturnStatus);
+
+                                  return (
+                                    <>
+                                      <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-secondary rounded-full overflow-hidden">
+                                        <div 
+                                          className={`h-full transition-all duration-1000 ${order.status.toLowerCase() === 'return cancelled' ? 'bg-destructive' : 'bg-primary'}`} 
+                                          style={{ width: `${(progress / 5) * 100}%` }}
+                                        />
                                       </div>
-                                    )
-                                  })}
-                                </div>
+                                      <div className="relative flex justify-between z-10 w-full text-[10px] md:text-xs font-semibold uppercase tracking-wider text-muted-foreground gap-1">
+                                        {steps.map((step, idx) => {
+                                          const isActive = progress >= idx;
+                                          const isCancelled = order.status.toLowerCase() === 'return cancelled';
+                                          return (
+                                            <div key={idx} className="flex flex-col items-center gap-2 flex-1 text-center min-w-0 relative">
+                                              <div className={`w-6 h-6 z-10 rounded-full flex items-center justify-center transition-colors shrink-0 ${
+                                                isActive 
+                                                  ? isCancelled ? 'bg-destructive text-white ring-4 ring-destructive/20' : 'bg-primary text-black ring-4 ring-primary/20' 
+                                                  : 'bg-secondary text-muted-foreground'
+                                              }`}>
+                                                {isActive ? (isCancelled ? '✕' : '✓') : idx + 1}
+                                              </div>
+                                              <span className={`hidden md:block ${isActive ? (isCancelled ? 'text-destructive font-bold' : 'text-primary font-bold') : ''}`}>{step}</span>
+                                              <span className={`md:hidden ${isActive ? (isCancelled ? 'text-destructive font-bold' : 'text-primary font-bold') : ''}`}>{step.split(' ')[0]}</span>
+                                              
+                                              {/* OTP Display when out for delivery */}
+                                              {step === 'Out for Delivery' && isActive && order.otp && !isReturnStatus && (
+                                                  <div className="absolute top-10 whitespace-nowrap bg-zinc-900 border border-primary/50 text-white text-xs px-2 py-1 rounded-md mt-2 shadow-xl animate-pulse z-20">
+                                                    OTP: <span className="font-bold text-primary tracking-widest text-sm">{order.otp}</span>
+                                                  </div>
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
 
