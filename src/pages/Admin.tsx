@@ -456,7 +456,7 @@ export default function Admin() {
     try {
       await emailjs.send(
         "service_7lwdycn", 
-        "template_xxxxxxx", // User needs to provide the real Template ID, they provided {{reply_message}} by mistake
+        "template_qjwruv8",
         {
           to_name: replyMessageData.name,
           to_email: replyMessageData.email,
