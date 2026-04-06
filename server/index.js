@@ -20,6 +20,7 @@ const razorpay = new Razorpay({
 
 // ─── In-Memory OTP Store (email → { code, expiresAt }) ──────────────────────
 const otpStore = new Map();
+const deliveryOtpStore = new Map(); // Delivery OTPs (order_id -> { otp })
 
 const nodemailer = require('nodemailer');
 const emailTransporter = nodemailer.createTransport({
@@ -355,6 +356,80 @@ app.put('/api/orders/:id/amount', async (req, res) => {
   }
   if (error) return res.status(500).json({ error: error.message });
   res.json(data?.[0] || { success: true });
+});
+
+// ─── Refund & Return API ────────────────────────────────────────────────────────
+app.post('/api/orders/:id/request-refund', async (req, res) => {
+  const { id } = req.params;
+  // Update order status to "Refund Requested"
+  let { data, error } = await supabase.from('orders').update({ status: 'Refund Requested' }).eq('order_id', id).select();
+  if (!data?.length) {
+    ({ data, error } = await supabase.from('orders').update({ status: 'Refund Requested' }).eq('id', id).select());
+  }
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, message: 'Refund requested successfully. It takes approx 5 days to reflect in your bank account.' });
+});
+
+app.post('/api/orders/:id/request-return', async (req, res) => {
+  const { id } = req.params;
+  // Check if within 3 days. The frontend can also enforce this.
+  let { data, error } = await supabase.from('orders').update({ status: 'Return Requested' }).eq('order_id', id).select();
+  if (!data?.length) {
+    ({ data, error } = await supabase.from('orders').update({ status: 'Return Requested' }).eq('id', id).select());
+  }
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, message: 'Return request submitted. Pickup will be arranged shortly.' });
+});
+
+// ─── Delivery OTP API ────────────────────────────────────────────────────────
+app.post('/api/orders/:id/generate-delivery-otp', async (req, res) => {
+  const { id } = req.params;
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required for OTP' });
+  
+  const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
+  deliveryOtpStore.set(id, { otp });
+
+  try {
+    await emailTransporter.sendMail({
+      from: `"Arteco Delivery" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `Your Arteco Delivery OTP is ${otp}`,
+      html: `<h3>Your delivery is on its way!</h3><p>Please share this OTP with the delivery executive to receive your order: <strong>${otp}</strong></p>`
+    });
+    // Return OTP to store inside frontend as well for easy displaying to the user on Profile!
+    res.json({ success: true, otp });
+  } catch(e) {
+    res.status(500).json({ error: 'Mail failed, but generated.' });
+  }
+});
+
+app.post('/api/orders/:id/verify-delivery-otp', async (req, res) => {
+  const { id } = req.params;
+  const { otp } = req.body;
+  
+  const record = deliveryOtpStore.get(id);
+  if (!record) return res.status(400).json({ error: 'No OTP generated for this order yet.' });
+  if (record.otp !== otp) return res.status(400).json({ error: 'Invalid Delivery OTP' });
+
+  // If valid, Mark as Delivered
+  deliveryOtpStore.delete(id);
+  
+  let { data, error } = await supabase.from('orders').update({ status: 'Delivered' }).eq('order_id', id).select();
+  if (!data?.length) {
+    ({ data, error } = await supabase.from('orders').update({ status: 'Delivered' }).eq('id', id).select());
+  }
+  res.json({ success: true, message: 'OTP Verified successfully. Order delivered!' });
+});
+
+app.get('/api/orders/:id/delivery-otp', (req, res) => {
+  const { id } = req.params;
+  const record = deliveryOtpStore.get(id);
+  if (record) {
+    res.json({ otp: record.otp });
+  } else {
+    res.json({ otp: null });
+  }
 });
 
 const PORT = process.env.PORT || 5000;

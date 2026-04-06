@@ -16,6 +16,8 @@ export interface OrderRecord {
   items: any[];
   total: number;
   status: string;
+  payment_method?: string;
+  otp?: string;
   deliveryDetails: { address: string; phone: string; pincode: string };
   expectedDelivery?: string;
 }
@@ -77,19 +79,32 @@ const Profile = () => {
         if (res.ok) {
           const data = await res.json();
           // Status updates from admin are primary, so we use data first
-          const formattedData = data.map((o: any) => {
+          const formattedData = await Promise.all(data.map(async (o: any) => {
             // THE "MASTERCARD SYNC": Priority 1 is what the Admin just broadcasted!
             const broadcast = localStorage.getItem(`broadcast_status_${o.order_id || o.id}`);
+            const currentStatus = broadcast || o.status;
+            
+            let deliveryOtpText = null;
+            if (currentStatus?.toLowerCase() === 'out for delivery') {
+              try {
+                const otpRes = await fetch(`${API_BASE_URL}/api/orders/${o.order_id || o.id}/delivery-otp`);
+                const otpData = await otpRes.json();
+                if (otpData.otp) deliveryOtpText = otpData.otp;
+              } catch (e) {}
+            }
+
             return {
               id: o.order_id || o.id,
               date: o.created_at || o.date,
               total: o.amount,
-              status: broadcast || o.status, // 💡 FORCE OVERRIDE
+              status: currentStatus, // 💡 FORCE OVERRIDE
+              payment_method: o.razorpay_payment_id === 'COD' ? 'COD' : 'Online',
+              otp: deliveryOtpText,
               items: o.items || [],
               deliveryDetails: o.shipping_address ? { address: o.shipping_address, phone: o.phone || '', pincode: '' } : o.deliveryDetails,
               expectedDelivery: o.expected_delivery_date
             };
-          });
+          }));
           
           setOrders(formattedData);
         } else {
@@ -182,43 +197,39 @@ const Profile = () => {
     }
   };
 
-  const handleCancelOrder = async (id: string, paymentMethod: string) => {
-    if (window.confirm("Are you sure you want to cancel this order? If paid online, a refund will be initiated automatically.")) {
-      try {
-        // 1. Trigger Refund API (Only for online payments)
-        if (paymentMethod !== "COD") {
-          toast.info("Initiating secure refund via Razorpay...");
-          const refundRes = await fetch(`${API_BASE_URL}/api/payment/refund`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: id, email: user?.email })
-          });
-          const refundData = await refundRes.json();
-          if (refundData.success) {
-            toast.success("Refund initiated! Amount will reflect in 5-7 days.");
+  const handleCancelOrder = async (id: string, paymentMethod: string, status: string) => {
+    if (status?.toLowerCase() === 'delivered') {
+      if (window.confirm("Do you want to request a return for this delivered item? (Time limit: 3 Days)")) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/orders/${id}/request-return`, { method: "POST" });
+          if(res.ok) {
+            toast.success("Return requested! Admin will review it.");
+            fetchOrders();
           }
-        }
+        } catch(e) { toast.error("Failed to request return."); }
+      }
+      return;
+    }
 
-        // 2. Update Status locally & on server
-        const res = await fetch(`${API_BASE_URL}/api/orders/${id}/status`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "Cancelled" })
-        });
-
-        if (res.ok) {
-          fetchOrders();
-          toast.success("Order cancelled successfully!");
+    if (window.confirm("Are you sure you want to cancel this order?")) {
+      try {
+        if (paymentMethod !== "COD") {
+          toast.info("Requesting Refund from Admin...");
+          const refundRes = await fetch(`${API_BASE_URL}/api/orders/${id}/request-refund`, { method: "POST" });
+          if (refundRes.ok) {
+            toast.success("Refund Requested! It will be paid within 5 days.");
+          }
+        } else {
+            const copyRes = await fetch(`${API_BASE_URL}/api/orders/${id}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "Cancelled" })
+            });
+            if (copyRes.ok) toast.success("Order cancelled!");
         }
+        fetchOrders();
       } catch (err) {
-        // Fallback for demo/local storage
-        const existingOrders = JSON.parse(localStorage.getItem(`orders_${user?.email}`) || "[]");
-        const updated = existingOrders.map((o: OrderRecord) => 
-          o.id === id ? { ...o, status: "Cancelled" } : o
-        );
-        localStorage.setItem(`orders_${user?.email}`, JSON.stringify(updated));
-        setOrders(updated);
-        toast.success("Order has been cancelled locally.");
+        toast.error("Error cancelling order");
       }
     }
   };
@@ -315,18 +326,14 @@ const Profile = () => {
                               </span>
                               
                               <div className="flex flex-wrap gap-2">
-                                {["Placed", "Processing"].includes(order.status) && (
-                                  <button onClick={() => handleCancelOrder(order.id, "UPI")} className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground hover:text-destructive border border-border hover:border-destructive/30 px-2 py-1 rounded transition-colors">
+                                {["Placed", "Processing", "Dispatched", "Shipped"].includes(order.status) && (
+                                  <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground hover:text-destructive border border-border hover:border-destructive/30 px-2 py-1 rounded transition-colors">
                                     Cancel & Refund
                                   </button>
                                 )}
                                 
                                 {order.status === "Delivered" && (
-                                  <button onClick={() => {
-                                    if(window.confirm("Arteco Policy: Returns are accepted within 7 days if tools are defective or sheets are damaged. Request Return?")) {
-                                      toast.info("Return request sent! Our team will review the damage within 24 hours.");
-                                    }
-                                  }} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
+                                  <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
                                     Request Return
                                   </button>
                                 )}
@@ -349,18 +356,26 @@ const Profile = () => {
                                   const isActive = getOrderStatusProgress(order.status) >= idx;
                                   const totalSteps = 5; // 0 to 5
                                   return (
-                                    <div key={idx} className="flex flex-col items-center gap-2 flex-1 text-center min-w-0">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors shrink-0 ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
+                                    <div key={idx} className="flex flex-col items-center gap-2 flex-1 text-center min-w-0 relative">
+                                      <div className={`w-6 h-6 z-10 rounded-full flex items-center justify-center transition-colors shrink-0 ${isActive ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-secondary text-muted-foreground'}`}>
                                         {isActive ? '✓' : idx + 1}
                                       </div>
                                       <span className={`hidden md:block ${isActive ? 'text-primary font-bold' : ''}`}>{step}</span>
-                                      <span className={`md:hidden ${isActive ? 'text-primary font-boldScale' : ''}`}>{step.split(' ')[0]}</span>
+                                      <span className={`md:hidden ${isActive ? 'text-primary font-bold' : ''}`}>{step.split(' ')[0]}</span>
+                                      
+                                      {/* OTP Display when out for delivery */}
+                                      {step === 'OUT FOR DELIVERY' && isActive && order.otp && (
+                                          <div className="absolute top-10 whitespace-nowrap bg-zinc-900 border border-primary/50 text-white text-xs px-2 py-1 rounded-md mt-2 shadow-xl animate-pulse z-20">
+                                            OTP: <span className="font-bold text-primary tracking-widest text-sm">{order.otp}</span>
+                                          </div>
+                                      )}
                                     </div>
                                   )
                                 })}
                               </div>
                             </div>
                           )}
+
 
                           <div className="flex flex-col md:flex-row gap-6">
                             <div className="flex-1">

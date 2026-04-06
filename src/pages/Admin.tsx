@@ -197,27 +197,59 @@ export default function Admin() {
     try { const res = await fetch(`${API}/api/content`); if (res.ok) setSiteContent(await res.json()); } catch { }
   };
 
-  const updateOrderStatus = async (id: string, status: string) => {
+  const updateOrderStatus = async (id: string, status: string, orderEmail?: string) => {
+    const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+    if (status === "Out for Delivery") {
+       // Generate OTP!
+       try {
+         await fetch(`${BASE}/api/orders/${id}/generate-delivery-otp`, {
+           method: "POST", headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ email: orderEmail || "shivakiranghm@gmail.com" }) // fallback
+         });
+         toast.success("Delivery OTP Generated and Sent to User!");
+       } catch (e) {
+         toast.error("Failed to generate Delivery OTP");
+       }
+    }
+
+    if (status === "Delivered") {
+       const otp = window.prompt("SECURE DELIVERY: Enter the 4-digit OTP provided by the user:");
+       if (!otp) {
+         toast.error("Status update cancelled. OTP required for delivery.");
+         return; // Break
+       }
+       try {
+         const res = await fetch(`${BASE}/api/orders/${id}/verify-delivery-otp`, {
+           method: "POST", headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ otp })
+         });
+         const data = await res.json();
+         if (!res.ok) {
+            toast.error(data.error || "Incorrect OTP");
+            return;
+         }
+         toast.success("OTP Verified! Order Marked as Delivered.");
+       } catch (err) {
+         toast.error("Verification failed.");
+         return;
+       }
+    }
+
     // 🔒 1. Local Persistence (Refreshes)
     const updatedLocks = { ...statusOverrides, [id]: status };
     setStatusOverrides(updatedLocks);
     localStorage.setItem("admin_status_locks", JSON.stringify(updatedLocks));
     
-    const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
     try {
-      // 💡 MASTER FORCE: Force the status directly into the main order record
-      await fetch(`${BASE}/api/admin/orders/${id}/status`, {
+      // Corrected to hit the actual defined backend route
+      const res = await fetch(`${BASE}/api/orders/${id}/status`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, force: true })
-      });
-      
-      // Fallback: Also try the user-facing patch route
-      await fetch(`${BASE}/api/orders/${id}/status`, {
-        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
+      
+      if (!res.ok) throw new Error("Failed to update status on server");
       
       toast.success(`Success: ${status.toUpperCase()} stage is now LIVE.`);
     } catch (err) {
@@ -368,6 +400,7 @@ export default function Admin() {
             <TabBtn id="orders" label="Orders" icon={Truck} active={activeTab === "orders"} onClick={setActiveTab} />
             <TabBtn id="products" label="Products" icon={Package} active={activeTab === "products"} onClick={setActiveTab} />
             <TabBtn id="users" label="Users" icon={Users} active={activeTab === "users"} onClick={setActiveTab} />
+            <TabBtn id="analytics" label="Analytics DB" icon={BarChart2} active={activeTab === "analytics"} onClick={setActiveTab} />
             <TabBtn id="logs" label="Logs" icon={Activity} active={activeTab === "logs"} onClick={setActiveTab} />
             <TabBtn id="content" label="CMS" icon={Globe} active={activeTab === "content"} onClick={setActiveTab} />
             <TabBtn id="deleted" label="Deleted Accounts" icon={ShieldAlert} active={activeTab === "deleted"} onClick={setActiveTab} danger />
@@ -409,12 +442,21 @@ export default function Admin() {
                     <div className="flex flex-col gap-2 min-w-[220px]">
                       <label className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Update Delivery Status</label>
                       <select 
-                        className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all shadow-xl ${o.status === "Cancelled" ? "border-red-500 text-red-400" : "border-zinc-800 focus:border-primary"}`} 
+                        className={`bg-zinc-900 border px-4 py-3 rounded-xl text-sm focus:outline-none transition-all shadow-xl ${o.status?.includes("Cancel") || o.status?.includes("Refund") || o.status?.includes("Return") ? "border-red-500 text-red-400" : "border-zinc-800 focus:border-primary"}`} 
                         value={statusOverrides[o.order_id || o.id] || o.status || "Processing"} 
                         onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}
                       >
-                        {["Placed", "Processing", "Dispatched", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Refunded"].map(s => <option key={s} value={s}>{s}</option>)}
+                        {["Placed", "Processing", "Dispatched", "Shipped", "Out for Delivery", "Delivered", "Return Requested", "Returned & Refunded", "Refund Requested", "Refunded", "Cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
+                      
+                      {o.status === "Return Requested" && (
+                         <button onClick={() => updateOrderStatus(o.order_id || o.id, "Returned & Refunded")} className="bg-green-500/10 text-green-500 border border-green-500/30 text-xs py-2 rounded-lg font-bold hover:bg-green-500 shadow-sm transition-all hover:text-black">Approve Return & Refund</button>
+                      )}
+                      
+                      {o.status === "Refund Requested" && (
+                         <button onClick={() => updateOrderStatus(o.order_id || o.id, "Refunded")} className="bg-blue-500/10 text-blue-500 border border-blue-500/30 text-xs py-2 rounded-lg font-bold hover:bg-blue-500 shadow-sm transition-all hover:text-white">Approve Refund</button>
+                      )}
+
                     </div>
                   </div>
                 ))}
@@ -443,9 +485,7 @@ export default function Admin() {
                           <div className="w-full h-full flex items-center justify-center opacity-20"><Package size={48}/></div>
                         )}
                         <div className="absolute top-3 right-3 flex gap-2">
-                           <button onClick={() => { setEditingProduct(p); setShowProductModal(true); }} className="p-3 bg-primary text-black rounded-xl hover:scale-110 shadow-xl transition-all" title="Edit Item">
-                            <FileEdit size={16} strokeWidth={2.5}/>
-                          </button>
+                          {/* Top right removed to be more obvious at the bottom */}
                         </div>
                       </div>
 
@@ -460,9 +500,13 @@ export default function Admin() {
                         <p className="text-xs text-muted-foreground/80 line-clamp-2 leading-relaxed">{p.description}</p>
                       </div>
 
-                      <div className="pt-4 mt-auto">
-                        <button onClick={() => handleDeleteProduct(p.id)} className="w-full py-2.5 rounded-xl border border-zinc-800 text-red-500 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-2">
-                          <Trash2 size={12}/> Delete Product
+                      <div className="pt-4 mt-auto flex gap-2">
+                        <button onClick={() => { setEditingProduct(p); setShowProductModal(true); }} className="flex-1 py-2.5 rounded-xl border border-primary/50 text-primary hover:bg-primary hover:text-black text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                          <FileEdit size={12}/> Edit
+                        </button>
+                        <button onClick={() => handleDeleteProduct(p.id)} className="flex-1 py-2.5 rounded-xl border border-zinc-800 text-red-500 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center gap-2">
+                          <Trash2 size={12}/> Delete
+
                         </button>
                       </div>
                     </div>
@@ -507,6 +551,41 @@ export default function Admin() {
                     </table>
                   </div>
                   {usersList.length === 0 && <div className="p-20 text-center text-muted-foreground/40 font-bold uppercase tracking-widest">No users detected in database.</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "analytics" && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold tracking-tight mb-6">Database Analytics & Tracking</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="bg-card border border-border p-6 rounded-2xl">
+                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-widest mb-1">Active Orders</p>
+                    <p className="text-4xl font-black text-primary">{orders.filter(o => !['Delivered', 'Cancelled'].includes(o.status)).length}</p>
+                  </div>
+                  <div className="bg-card border border-border p-6 rounded-2xl">
+                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-widest mb-1">Products Delivered</p>
+                    <p className="text-4xl font-black text-green-500">{orders.filter(o => o.status === 'Delivered').length}</p>
+                  </div>
+                  <div className="bg-card border border-border p-6 rounded-2xl">
+                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-widest mb-1">Total Users</p>
+                    <p className="text-4xl font-black text-blue-500">{usersList.length}</p>
+                  </div>
+                  <div className="bg-card border border-border p-6 rounded-2xl">
+                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-widest mb-1">Total Products</p>
+                    <p className="text-4xl font-black text-purple-500">{products.length}</p>
+                  </div>
+                </div>
+                
+                <h3 className="text-lg font-bold mt-8 mb-4 border-t border-border pt-6">Advanced Tables (Simulated Views)</h3>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-sm text-muted-foreground space-y-4">
+                  <p>In Supabase, the following metrics are processed dynamically. You can review all records directly through the lists above.</p>
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Returns Table:</strong> {orders.filter(o => o.status?.includes("Return")).length} items marked for evaluation.</li>
+                    <li><strong>Refunds Queue:</strong> {orders.filter(o => o.status === "Refund Requested").length} payouts pending processing.</li>
+                    <li><strong>Deleted Audit Log:</strong> {deletedUsers.length} accounts purged.</li>
+                    <li><strong>Delivery OTP Active:</strong> {orders.filter(o => o.status === "Out for Delivery").length} OTPs active in field.</li>
+                  </ul>
                 </div>
               </div>
             )}

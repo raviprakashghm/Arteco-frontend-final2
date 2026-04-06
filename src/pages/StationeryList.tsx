@@ -30,16 +30,24 @@ const StationeryList = () => {
   const fetchMerged = async () => {
     try {
       const res = await fetch(`${API}/api/admin/products`);
-      let dbItems = [];
+      let dbItems: any[] = [];
       if (res.ok) {
         const data = await res.json();
         dbItems = Array.isArray(data) ? data : [];
-      } else {
-        // Force local sync if database is down
-        dbItems = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
       }
+      
+      // Also grab local items just in case the DB is lagging or unreachable
+      const localItems = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+      
+      // Merge unique
+      const allDbItems = [...dbItems];
+      localItems.forEach((localData: any) => {
+         if (!allDbItems.some(i => i.id === localData.id)) {
+            allDbItems.push(localData);
+         }
+      });
 
-      const stationeryDb = dbItems.filter((p: any) => p.category?.toLowerCase() === "stationery");
+      const stationeryDb = allDbItems.filter((p: any) => p.category?.toLowerCase() === "stationery");
       
       // Smart Merge
       const merged = [...legacyStationery];

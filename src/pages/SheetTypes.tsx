@@ -22,7 +22,14 @@ const SheetTypes = () => {
     fetch(`${API}/api/admin/products`)
       .then(res => res.json())
       .then(data => {
-        const apiData = Array.isArray(data) ? data : [];
+        let apiData = Array.isArray(data) ? data : [];
+        const localItems = JSON.parse(localStorage.getItem("admin_products_mock") || "[]");
+        localItems.forEach((localData: any) => {
+           if (!apiData.some(i => i.id === localData.id)) {
+              apiData.push(localData);
+           }
+        });
+
         const dbSheets = apiData.filter((p: any) => 
           p.category?.toLowerCase() === "drawing sheets" || 
           p.category?.toLowerCase() === "drawing-sheets"
