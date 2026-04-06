@@ -16,6 +16,7 @@ const Signup = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -53,6 +54,10 @@ const Signup = () => {
     if (!email.trim() || !email.includes("@")) { toast.error("Please enter a valid email."); return; }
     if (!validatePassword(password)) {
       toast.error("Password must be 8+ chars with 1 uppercase, 1 lowercase & 1 number/special char.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match! Please check and try again.");
       return;
     }
     if (phone.replace(/\D/g, "").length < 10) {
@@ -237,6 +242,19 @@ const Signup = () => {
                         placeholder="••••••••"
                       />
                       <p className="text-xs text-muted-foreground mt-1">8+ chars, uppercase, lowercase & special character</p>
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <label className="text-xs font-semibold tracking-wider uppercase text-muted-foreground mb-1.5 block">Confirm Password *</label>
+                      <input
+                        type="password"
+                        required
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        className="auth-input"
+                        placeholder="••••••••"
+                      />
                     </div>
 
                     <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
