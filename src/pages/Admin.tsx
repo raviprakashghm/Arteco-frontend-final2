@@ -426,7 +426,11 @@ export default function Admin() {
                     <div className="flex-1 space-y-3">
                       <div className="flex items-center gap-3">
                         <p className="font-mono text-primary font-bold text-lg tracking-tight">{o.order_id || o.id}</p>
+                        
+                        {/* Seperate Badges for User Actions */}
                         {o.status === "Cancelled" && <span className="px-3 py-1 bg-red-500 text-white text-[10px] font-bold uppercase rounded-full animate-pulse flex items-center gap-1"><X size={12}/> User Cancelled</span>}
+                        {o.status === "Refund Requested" && <span className="px-3 py-1 bg-yellow-500 text-black text-[10px] font-bold uppercase rounded-full animate-pulse flex items-center gap-1">💰 Cancel & Refund Requested</span>}
+                        {o.status === "Return Requested" && <span className="px-3 py-1 bg-orange-500 text-white text-[10px] font-bold uppercase rounded-full animate-pulse flex items-center gap-1">📦 Return & Refund Requested</span>}
                       </div>
                       <p className="text-sm font-semibold capitalize">User: <span className="text-muted-foreground font-normal">{o.user_name || o.name || o.user_email || "ARTECO User"}</span></p>
                       <div className="flex items-center gap-3">
@@ -454,15 +458,23 @@ export default function Admin() {
                         value={statusOverrides[o.order_id || o.id] || o.status || "Processing"} 
                         onChange={(e) => updateOrderStatus(o.order_id || o.id, e.target.value)}
                       >
-                        {["Placed", "Processing", "Dispatched", "Shipped", "Out for Delivery", "Delivered", "Return Requested", "Returned & Refunded", "Refund Requested", "Refunded", "Cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                        {/* Dynamic list combining existing status and the requested stricty options array */}
+                        {Array.from(new Set([
+                          statusOverrides[o.order_id || o.id] || o.status, 
+                          "Dispatched", "Shipped", "Out for Delivery", "Delivered", 
+                          "Return Approved", "Return Cancelled", "Refund Initiated", "Refund Complete"
+                        ])).map(s => s && <option key={s} value={s}>{s}</option>)}
                       </select>
                       
                       {o.status === "Return Requested" && (
-                         <button onClick={() => updateOrderStatus(o.order_id || o.id, "Returned & Refunded")} className="bg-green-500/10 text-green-500 border border-green-500/30 text-xs py-2 rounded-lg font-bold hover:bg-green-500 shadow-sm transition-all hover:text-black">Approve Return & Refund</button>
+                         <div className="flex gap-2 mt-2">
+                           <button onClick={() => updateOrderStatus(o.order_id || o.id, "Return Approved")} className="bg-green-500/10 text-green-500 border border-green-500/30 text-xs py-2 px-3 rounded-lg font-bold hover:bg-green-500 transition-all hover:text-black w-full shadow-sm">Approve Return</button>
+                           <button onClick={() => updateOrderStatus(o.order_id || o.id, "Return Cancelled")} className="bg-red-500/10 text-red-500 border border-red-500/30 text-xs py-2 px-3 rounded-lg font-bold hover:bg-red-500 transition-all hover:text-white shadow-sm shrink-0">Deny</button>
+                         </div>
                       )}
                       
                       {o.status === "Refund Requested" && (
-                         <button onClick={() => updateOrderStatus(o.order_id || o.id, "Refunded")} className="bg-blue-500/10 text-blue-500 border border-blue-500/30 text-xs py-2 rounded-lg font-bold hover:bg-blue-500 shadow-sm transition-all hover:text-white">Approve Refund</button>
+                         <button onClick={() => updateOrderStatus(o.order_id || o.id, "Refund Initiated")} className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 mt-2 text-xs py-2 rounded-lg font-bold hover:bg-yellow-500 shadow-sm transition-all hover:text-black">Initiate Refund</button>
                       )}
 
                     </div>
