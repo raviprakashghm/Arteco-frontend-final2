@@ -47,17 +47,26 @@ const Profile = () => {
     const currentOrder = orders.find(o => o.id === feedbackOrderId);
     if(!currentOrder) return;
     
-    const existing = JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]");
+    let existing = JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]");
+    const userName = user?.name || user?.email;
+    const targetIdx = existing.findIndex((f: any) => f.orderId === currentOrder.id && f.userName === userName);
+    
     const payload = {
-      id: `FB${Date.now()}`,
+      id: targetIdx >= 0 ? existing[targetIdx].id : `FB${Date.now()}`,
       orderId: currentOrder.id,
-      userName: user?.name || user?.email,
-      productNames: currentOrder.items.map(i => `${i.name} (x${i.quantity})`).join(", "),
+      userName: userName,
+      productNames: currentOrder.items.map((i: any) => `${i.name} (x${i.quantity})`).join(", "),
       stars: feedbackForm.stars,
       reviewText: feedbackForm.review,
       date: new Date().toISOString()
     };
-    localStorage.setItem("admin_feedbacks_mock", JSON.stringify([payload, ...existing]));
+    
+    if (targetIdx >= 0) {
+      existing[targetIdx] = payload;
+    } else {
+      existing = [payload, ...existing];
+    }
+    localStorage.setItem("admin_feedbacks_mock", JSON.stringify(existing));
     
     toast.success("Feedback submitted! Thank you for reviewing your purchase.");
     setFeedbackOrderId(null);
@@ -421,16 +430,37 @@ const Profile = () => {
                                   </button>
                                 )}
                                 
-                                {order.status === "Delivered" && (
-                                  <>
-                                    <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
-                                      Return & Refund
-                                    </button>
-                                    <button onClick={() => setFeedbackOrderId(order.id)} className="text-[10px] font-bold tracking-wider uppercase text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/10 px-2 py-1 rounded transition-colors flex items-center gap-1">
-                                      <Star className="w-3 h-3 fill-yellow-500"/> Leave Feedback
-                                    </button>
-                                  </>
-                                )}
+                                {order.status === "Delivered" && (() => {
+                                  let existing = JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]");
+                                  const existingFeedback = existing.find((f: any) => f.orderId === order.id && f.userName === (user?.name || user?.email));
+                                  return (
+                                    <>
+                                      <button onClick={() => handleCancelOrder(order.id, order.payment_method || "Online", order.status)} className="text-[10px] font-bold tracking-wider uppercase text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors">
+                                        Return & Refund
+                                      </button>
+                                      {existingFeedback ? (
+                                        <div className="flex gap-2">
+                                          <span className="text-[10px] font-bold tracking-wider uppercase text-yellow-500 border border-yellow-500/30 px-2 py-1 rounded flex items-center gap-1 bg-yellow-500/10">
+                                            <Check className="w-3 h-3"/> Feedback Received
+                                          </span>
+                                          <button onClick={() => {
+                                             setFeedbackForm({ stars: existingFeedback.stars, review: existingFeedback.reviewText || "" });
+                                             setFeedbackOrderId(order.id);
+                                          }} className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground border border-border hover:bg-secondary px-2 py-1 rounded transition-colors flex items-center gap-1">
+                                            <Edit3 className="w-3 h-3"/> Edit Feedback
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button onClick={() => {
+                                            setFeedbackForm({ stars: 5, review: "" });
+                                            setFeedbackOrderId(order.id);
+                                        }} className="text-[10px] font-bold tracking-wider uppercase text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/10 px-2 py-1 rounded transition-colors flex items-center gap-1">
+                                          <Star className="w-3 h-3 fill-yellow-500"/> Leave Feedback
+                                        </button>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>

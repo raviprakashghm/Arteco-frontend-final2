@@ -152,6 +152,15 @@ export default function Admin() {
     setFeedbacksList(JSON.parse(localStorage.getItem("admin_feedbacks_mock") || "[]"));
   }, []);
 
+  // Clear badges intelligently on view
+  const deliveredOrdersListTotal = [...orders].filter(o => !["return requested", "return approved", "order pick up", "returned", "refund requested", "refund initiated", "refund complete", "return cancelled"].includes((statusOverrides[o.order_id || o.id] || o.status || "").toLowerCase()) && (statusOverrides[o.order_id || o.id] || o.status || "").toLowerCase() === "delivered").length;
+  
+  useEffect(() => {
+     if (activeTab === "messages") localStorage.setItem("admin_last_viewed_messages", messagesList.length.toString());
+     if (activeTab === "feedbacks") localStorage.setItem("admin_last_viewed_feedbacks", feedbacksList.length.toString());
+     if (activeTab === "delivered") localStorage.setItem("admin_last_viewed_delivered", deliveredOrdersListTotal.toString());
+  }, [activeTab, messagesList.length, feedbacksList.length, deliveredOrdersListTotal]);
+
   const fetchOrders = async () => {
     try {
       const res = await fetch(`${API}/api/orders`);
@@ -424,6 +433,16 @@ export default function Admin() {
     return "Unknown User";
   };
 
+  const messagesBadgeCount = typeof window !== 'undefined' ? Math.max(0, messagesList.length - Number(localStorage.getItem("admin_last_viewed_messages") || 0)) : 0;
+  const feedbacksBadgeCount = typeof window !== 'undefined' ? Math.max(0, feedbacksList.length - Number(localStorage.getItem("admin_last_viewed_feedbacks") || 0)) : 0;
+  const deliveredBadgeCount = typeof window !== 'undefined' ? Math.max(0, deliveredOrdersList.length - Number(localStorage.getItem("admin_last_viewed_delivered") || 0)) : 0;
+
+  const handleReplyMessage = (msg: any) => {
+    const subject = encodeURIComponent(`Re: Your message to ARTECO (${new Date(msg.date).toLocaleDateString()})`);
+    const body = encodeURIComponent(`Hello ${msg.name},\n\nThank you for reaching out to us.\n\n[Write your reply here]\n\nThanks and regards,\nARTECO Admin Team`);
+    window.location.href = `mailto:${msg.email}?subject=${subject}&body=${body}`;
+  };
+
   if (user?.email !== "admin@arteco.com") {
     return (
       <PageTransition>
@@ -484,10 +503,10 @@ export default function Admin() {
             <TabBtn id="overview" label="Overview" icon={BarChart2} active={activeTab === "overview"} onClick={setActiveTab} />
             <TabBtn id="orders" label="Orders" icon={Truck} active={activeTab === "orders"} onClick={setActiveTab} />
             <TabBtn id="cancelled" label="Cancelled Orders" icon={X} active={activeTab === "cancelled"} onClick={setActiveTab} badge={cancelledOrdersList.length} danger />
-            <TabBtn id="delivered" label="Total Delivered" icon={Check} active={activeTab === "delivered"} onClick={setActiveTab} badge={deliveredOrdersList.length} />
+            <TabBtn id="delivered" label="Total Delivered" icon={Check} active={activeTab === "delivered"} onClick={setActiveTab} badge={deliveredBadgeCount} />
             <TabBtn id="returns" label="Order Returns" icon={RefreshCw} active={activeTab === "returns"} onClick={setActiveTab} badge={pendingReturnsCount} />
-            <TabBtn id="feedbacks" label="Feedbacks" icon={Star} active={activeTab === "feedbacks"} onClick={setActiveTab} badge={feedbacksList.length} />
-            <TabBtn id="messages" label="Messages" icon={MessageSquare} active={activeTab === "messages"} onClick={setActiveTab} badge={messagesList.length} />
+            <TabBtn id="feedbacks" label="Feedbacks" icon={Star} active={activeTab === "feedbacks"} onClick={setActiveTab} badge={feedbacksBadgeCount} />
+            <TabBtn id="messages" label="Messages" icon={MessageSquare} active={activeTab === "messages"} onClick={setActiveTab} badge={messagesBadgeCount} />
             <TabBtn id="products" label="Products" icon={Package} active={activeTab === "products"} onClick={setActiveTab} />
             <TabBtn id="users" label="Users" icon={Users} active={activeTab === "users"} onClick={setActiveTab} />
             <TabBtn id="analytics" label="Analytics DB" icon={BarChart2} active={activeTab === "analytics"} onClick={setActiveTab} />
@@ -751,7 +770,10 @@ export default function Admin() {
                       </div>
                     </div>
                     <p className="text-sm border-l-2 border-blue-500/50 pl-4 text-foreground leading-relaxed whitespace-pre-wrap">{msg.message}</p>
-                    <div className="text-right mt-4 text-[10px] text-muted-foreground font-mono">{new Date(msg.date).toLocaleString()}</div>
+                    <div className="flex items-center justify-between mt-4">
+                       <button onClick={() => handleReplyMessage(msg)} className="text-xs font-bold uppercase tracking-wider text-blue-400 hover:text-white border border-blue-500/30 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition-colors">Reply via Email</button>
+                       <div className="text-[10px] text-muted-foreground font-mono">{new Date(msg.date).toLocaleString()}</div>
+                    </div>
                   </div>
                 ))}
               </div>
