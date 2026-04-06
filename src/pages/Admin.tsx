@@ -268,14 +268,20 @@ export default function Admin() {
   const syncUsersManual = async () => {
     setLoading(true);
     try {
-      if (user?.email) {
-        await fetch(`${API}/api/users/sync`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: user.id || user.email, email: user.email, name: user.name, phone: user.phone })
-        });
-        toast.success("Users database synced successfully!");
-        fetchUsers();
+      const localUsers = JSON.parse(localStorage.getItem("admin_users_mock") || "[]");
+      if (user?.email && !localUsers.some((u: any) => u.email === user.email)) {
+         localUsers.push({ id: user.id || user.email, email: user.email, name: user.name, phone: user.phone, college: user.college });
       }
+
+      await Promise.all(localUsers.map((u: any) => 
+        fetch(`${API}/api/users/sync`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: u.id || u.email, email: u.email, name: u.name, phone: u.phone, college: u.college })
+        })
+      ));
+      
+      toast.success("All users synced to Supabase successfully!");
+      fetchUsers();
     } catch { toast.error("Failed to sync users manually."); } finally { setLoading(false); }
   };
 
@@ -295,21 +301,28 @@ export default function Admin() {
     const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
     if (status === "Out for Delivery") {
-       // Generate OTP!
-       const localPin = Math.floor(1000 + Math.random() * 9000).toString();
-       localStorage.setItem(`delivery_otp_${id}`, localPin);
-       
        let onlineSuccess = false;
        try {
          const res = await fetch(`${BASE}/api/orders/${id}/generate-delivery-otp`, {
            method: "POST", headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ email: orderEmail || "shivakiranghm@gmail.com", otpFallback: localPin }) // fallback
+           body: JSON.stringify({ email: orderEmail || "shivakiranghm@gmail.com" })
          });
-         if(res.ok) onlineSuccess = true;
+         if(res.ok) {
+           const data = await res.json();
+           if (data.otp) {
+              // Store the official OTP safely in local storage for when admin verifies it!
+              localStorage.setItem(`delivery_otp_${id}`, data.otp);
+           }
+           onlineSuccess = true;
+         }
        } catch (e) {}
        
        if (onlineSuccess) toast.success("Delivery OTP Generated and Sent to User!");
-       else toast.info("Device offline/slow: Local OTP Generated for Out for Delivery!");
+       else {
+          const localPin = Math.floor(1000 + Math.random() * 9000).toString();
+          localStorage.setItem(`delivery_otp_${id}`, localPin);
+          toast.info("Offline Fallback: Local OTP Generated for Out for Delivery!");
+       }
     }
 
     if (status === "Delivered") {
@@ -318,12 +331,14 @@ export default function Admin() {
          toast.error("Status update cancelled. OTP required for delivery.");
          return; // Break
        }
+       
        const localPin = localStorage.getItem(`delivery_otp_${id}`);
        if (localPin && localPin !== otp) {
           toast.error("Incorrect Delivery OTP!");
           return;
        } else if (!localPin) {
            try {
+             // Fallback hit node backend if memory is intact
              const res = await fetch(`${BASE}/api/orders/${id}/verify-delivery-otp`, {
                method: "POST", headers: { "Content-Type": "application/json" },
                body: JSON.stringify({ otp })
@@ -333,9 +348,10 @@ export default function Admin() {
                 toast.error(data.error || "Incorrect OTP");
                 return;
              }
-             toast.success("OTP Verified! Order Marked as Delivered.");
+             toast.success("OTP Verified via Server!");
            } catch (err) {
-             // Ignore error if it fails and local pin doesn't exist
+             toast.error("Incorrect Delivery OTP! Could not verify against server.");
+             return;
            }
        } else {
            toast.success("Local OTP Verified! Delivered.");
