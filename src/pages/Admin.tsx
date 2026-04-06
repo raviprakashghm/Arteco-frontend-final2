@@ -443,7 +443,7 @@ export default function Admin() {
     window.location.href = `mailto:${msg.email}?subject=${subject}&body=${body}`;
   };
 
-  if (user?.email !== "admin@arteco.com") {
+  if (user?.email !== "arteco.connects@gmail.com") {
     return (
       <PageTransition>
         <div className="min-h-screen bg-background">

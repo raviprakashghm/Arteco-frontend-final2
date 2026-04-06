@@ -54,7 +54,7 @@ const Header = () => {
         <div className="flex items-center gap-4">
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
-              {user?.email === "admin@arteco.com" && (
+              {user?.email === "arteco.connects@gmail.com" && (
                 <Link to="/admin" className="hover:text-primary transition-colors text-primary mr-1" aria-label="Admin Dashboard">
                   <ShieldAlert className="h-5 w-5" />
                 </Link>
