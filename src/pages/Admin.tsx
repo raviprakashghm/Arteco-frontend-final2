@@ -455,18 +455,15 @@ export default function Admin() {
     
     try {
       await emailjs.send(
-        "service_fgme6zs", 
-        "template_f1vshdd", // Add your new EmailJS template ID here for "Admin Replies" if you want a cleaner looking email, right now using fallback
+        "service_7lwdycn", 
+        "template_xxxxxxx", // User needs to provide the real Template ID, they provided {{reply_message}} by mistake
         {
           to_name: replyMessageData.name,
           to_email: replyMessageData.email,
           reply_message: replyContent,
           admin_email: "arteco.connects@gmail.com",
-          order_id: "Support Team",
-          total_amount: "N/A",
-          order_details: replyContent 
         },
-        "rwIUiOUbWpprqVmoJ" // Your public key
+        "eZB42OoseSkW8KEt1" // New public key
       );
       toast.success("Reply successfully sent to user!");
       setReplyModalOpen(false);
